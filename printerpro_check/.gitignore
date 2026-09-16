@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.buildvenv/
+build/PrinterProChecker*/
+dist/
+*.spec
+_printerpro_report.txt
+_printerpro_report.json
+*_corrected.pdf

@@ -1,0 +1,13 @@
+{
+  "_readme": "Alias lists for mapping arbitrary order-XML tag names to the concepts the checker needs. Tag matching is case-insensitive and ignores underscores/dashes. Edit this once you have a real printerpro.nl order XML sample, to match its exact tag names first (put the exact tag name first in each list).",
+  "product_name": ["product", "productnaam", "producttype", "product_name", "category", "categorie", "item", "itemname", "artikel", "artikelnaam", "productomschrijving"],
+  "order_id": ["orderid", "order_id", "ordernummer", "bestelnummer", "id", "reference", "referentie"],
+  "width_mm": ["width", "widthmm", "width_mm", "breedte", "breedtemm", "formaatbreedte", "trimwidth"],
+  "height_mm": ["height", "heightmm", "height_mm", "hoogte", "hoogtemm", "formaathoogte", "trimheight"],
+  "pages": ["pages", "pagecount", "page_count", "paginas", "aantalpaginas", "aantal_paginas", "numberofpages"],
+  "sides": ["sides", "zijdig", "zijden", "sided", "print_sides", "eenzijdig_tweezijdig"],
+  "quantity": ["quantity", "qty", "aantal", "oplage", "amount"],
+  "finishing": ["finishing", "afwerking", "binding", "inbinding"],
+  "filename": ["filename", "bestandsnaam", "file", "artworkfile", "bestand"],
+  "unit": ["unit", "eenheid", "maateenheid"]
+}
