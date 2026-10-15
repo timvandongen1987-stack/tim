@@ -1,0 +1,992 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>PrinterPro Orderscherm · Rust</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: smaakkiezer bovenin, daaronder het orderscherm in de gekozen smaak (overzicht of opdracht).
+   Tokens uit de webshop: pink, ink, paper, line, green, rose, radius 24 · Space Grotesk + Inter.
+   Bewust één lichte wereld (zoals de webshop); smaak 4 is bewust donker. */
+:root{
+  --pink:#fc0075; --pink-d:#d10062; --pink-soft:#ffe3f0; --rose:#fff0f6;
+  --ink:#231f20; --muted:#6a6d70; --paper:#f5f5f5; --hero:#e9eaec; --line:#e1e3e5; --white:#ffffff; --sel:#f0f1f2;
+  --green:#2c6651; --green-bg:#e4f1ea; --amber:#8a5300; --amber-bg:#fff1d6; --blue:#27468f; --blue-bg:#e8eefb;
+  --red:#b3261e; --red-bg:#fde9e8; --warn-bg:#fff7cf; --warn:#6b5300;
+  --display:'Space Grotesk',Arial,sans-serif; --body:Inter,Arial,sans-serif; --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --r:24px; --r-m:16px; --r-s:10px;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--pink);outline-offset:2px}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;vertical-align:middle}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- Smaakkiezer ---------- */
+.picker{background:var(--ink);color:#fff;padding-block:14px 0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.picker-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;max-width:1600px;margin:0 auto}
+.picker h1{font-family:var(--display);font-size:17px;font-weight:600;margin:0;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.logo{width:30px;height:30px;border-radius:50%;border:2.5px solid var(--pink);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:12px;color:var(--pink);background:#fff;flex-shrink:0}
+.picker h1 small{font-weight:400;color:#b9b3b5;font-size:13px;font-family:var(--body)}
+.flavors{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.flavors button{color:#d8d3d5;padding:8px 14px;border-radius:999px;font-weight:500;font-size:13px;display:flex;gap:8px;align-items:center}
+.flavors button b{font-family:var(--display);font-weight:600;color:#8e888a}
+.flavors button:hover{background:#3a3536;color:#fff}
+.flavors button[aria-pressed=true]{background:var(--pink);color:#fff}
+.flavors button[aria-pressed=true] b{color:#fff}
+.screens{display:flex;gap:4px;background:#3a3536;border-radius:999px;padding:3px}
+.screens button{color:#d8d3d5;padding:6px 14px;border-radius:999px;font-size:12.5px;font-weight:500}
+.screens button[aria-pressed=true]{background:#fff;color:var(--ink)}
+.pitch{max-width:1600px;margin:12px auto 0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,2fr);gap:8px 32px;padding-bottom:14px;border-top:1px solid #3a3536;padding-top:12px}
+.pitch h2{margin:0;font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:-.02em}
+.pitch p{margin:2px 0 0;color:#cfc9cb;max-width:60ch}
+.pitch ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 20px}
+.pitch li{color:#cfc9cb;font-size:12.5px;padding-left:14px;position:relative}
+.pitch li::before{content:"";position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--pink)}
+.pitch li b{color:#fff;font-weight:600;display:block}
+@media (max-width:860px){.pitch{grid-template-columns:1fr}.pitch ul{grid-template-columns:1fr}.flavors{margin-left:0}}
+
+/* ---------- App shell ---------- */
+#app{background:var(--paper);color:var(--ink);min-height:70vh}
+.stage{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+.frame{max-width:1600px;margin:0 auto}
+.topbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 0 16px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:-.01em}
+.brand .logo{width:38px;height:38px;font-size:14px}
+.brand span small{display:block;font-family:var(--body);font-weight:500;font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.gsearch{flex:1;min-width:220px;max-width:560px;display:flex;align-items:center;gap:10px;background:var(--white);border:1px solid var(--line);border-radius:999px;padding:10px 18px;color:var(--muted)}
+.gsearch input{border:0;outline:0;background:transparent;flex:1;min-width:0;color:var(--ink)}
+.userlinks{margin-left:auto;font-size:12px;color:var(--muted);display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center}
+.userlinks b{color:var(--ink)}
+.userlinks a{text-decoration:none;border-bottom:1px solid var(--line)}
+.crumbs{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.crumbs a{text-decoration:none}
+.crumbs a:hover{color:var(--pink)}
+.crumbs b{color:var(--ink);font-weight:600}
+.body{display:grid;grid-template-columns:76px minmax(0,1fr);gap:20px}
+.rail{display:flex;flex-direction:column;gap:6px;position:sticky;top:12px;align-self:start}
+.rail a{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:14px;text-decoration:none;font-size:11px;color:var(--ink)}
+.rail a svg{width:20px;height:20px}
+.rail a.on{background:#4a4546;color:#fff}
+.rail a:hover:not(.on){background:var(--hero)}
+@media (max-width:760px){.body{grid-template-columns:1fr}.rail{flex-direction:row;position:static}.rail a{flex:1}}
+
+/* ---------- Basiscomponenten ---------- */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:999px;font-weight:500;font-size:13px;white-space:nowrap;border:1px solid transparent;line-height:1.2}
+.btn-p{background:var(--pink);color:#fff}
+.btn-p:hover{background:var(--pink-d)}
+.btn-s{background:var(--white);border-color:var(--line);color:var(--ink)}
+.btn-s:hover{border-color:var(--ink)}
+.btn-d{color:var(--red);border-color:color-mix(in srgb,var(--red) 30%,transparent);background:var(--white)}
+.btn-d:hover{background:var(--red-bg)}
+.btn-g{color:var(--ink);padding:7px 10px}
+.btn-g:hover{background:var(--hero)}
+.btn-sm{padding:6px 11px;font-size:12px}
+.link{color:var(--pink-d);text-decoration:none;font-weight:500;cursor:pointer}
+.link:hover{text-decoration:underline}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;line-height:1.5}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.ph-prep{background:var(--amber-bg);color:var(--amber)}
+.ph-hold{background:var(--red-bg);color:var(--red)}
+.ph-ready{background:var(--pink-soft);color:var(--pink-d)}
+.ph-prod{background:var(--blue-bg);color:var(--blue)}
+.ph-done{background:var(--green-bg);color:var(--green)}
+.ph-closed{background:var(--hero);color:var(--muted)}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;font-size:11.5px;background:var(--hero);color:var(--ink);white-space:nowrap}
+.tag.flag{background:var(--rose);color:var(--pink-d);font-weight:600}
+.tag.blanco{background:var(--ink);color:var(--white)}
+.dl{display:inline-flex;flex-direction:column;line-height:1.25}
+.dl b{font-weight:600}
+.dl small{color:var(--muted);font-size:11.5px}
+.dl.d0 b{color:var(--red)}
+.dl.d1 b{color:var(--amber)}
+.muted{color:var(--muted)}
+.empty-dash{color:var(--muted)}
+.card{background:var(--white);border:1px solid var(--line);border-radius:var(--r)}
+.inp,.sel,textarea.inp{width:100%;background:var(--white);border:1px solid var(--line);border-radius:var(--r-s);padding:8px 11px;min-height:36px;color:var(--ink);outline:0}
+.inp:focus,.sel:focus{border-color:var(--ink);box-shadow:0 0 0 3px var(--pink-soft)}
+.sel{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
+.inp[readonly]{background:var(--paper)}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld>label,.lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.fld .hint{font-size:11.5px;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row>.inp,.row>.sel{flex:1;min-width:90px}
+.fgrid{display:grid;gap:14px 16px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.fgrid.c2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.fgrid.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.fgrid.c4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:700px){.fgrid.c2,.fgrid.c3,.fgrid.c4{grid-template-columns:1fr}}
+.span2{grid-column:span 2}
+.full{grid-column:1/-1}
+@media (max-width:700px){.span2{grid-column:auto}}
+@media (max-width:820px){.afdgrid{grid-template-columns:1fr!important}}
+.mini{display:inline-flex;gap:2px}
+.row:has(.mini){flex-wrap:nowrap}
+.fld>label.chk{text-transform:none;letter-spacing:0;font-size:13px;font-weight:400;color:var(--ink)}
+.mini button{width:24px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.mini button:hover{background:var(--hero);color:var(--ink)}
+.quick{font-size:11.5px;color:var(--pink-d);font-weight:500;white-space:nowrap;cursor:pointer}
+.chk{display:flex;gap:9px;align-items:flex-start;cursor:pointer;padding:5px 0;font-size:13px}
+.chk input{accent-color:var(--pink);width:16px;height:16px;margin:1px 0 0;flex-shrink:0}
+.note-auto{font-size:11.5px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-top:8px}
+.alert{display:flex;gap:10px;align-items:center;background:var(--warn-bg);color:var(--warn);border:1px solid #f1e08a;border-radius:var(--r-m);padding:11px 16px;font-weight:600;font-size:13px}
+.alert svg{color:#b58900;width:18px;height:18px}
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px}
+table.t th{font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--white);position:sticky;top:0}
+table.t td{padding:12px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t tr:hover td{background:var(--sel)}
+table.t tr.picked td{background:var(--rose)}
+table.t td.id a{font-family:var(--mono);font-weight:600;color:var(--pink-d);text-decoration:none;cursor:pointer}
+.contact b{display:block;font-weight:600}
+.contact span{display:block;color:var(--muted);font-size:12px}
+.acts{display:flex;gap:2px}
+.acts button{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.acts button:hover{background:var(--hero);color:var(--ink)}
+.emptyrow{padding:22px;text-align:center;color:var(--muted);font-size:12.5px}
+.secnum{font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+/* rich text */
+.rte{border:1px solid var(--line);border-radius:var(--r-s);background:var(--white);overflow:hidden;display:flex;flex-direction:column}
+.rte-bar{display:flex;gap:2px;flex-wrap:wrap;padding:5px 6px;border-bottom:1px solid var(--line);background:var(--paper);color:var(--muted);font-size:12px}
+.rte-bar span{padding:3px 7px;border-radius:6px}
+.rte-bar span:hover{background:var(--hero);color:var(--ink)}
+.rte-bar i{width:1px;background:var(--line);margin:3px 4px}
+.rte-area{min-height:90px;padding:10px 12px;outline:0}
+.rte-area:empty::before{content:attr(data-ph);color:var(--muted)}
+.hist{font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding:8px 12px;display:flex;justify-content:space-between;gap:8px}
+
+/* prioriteiten: chips per groep */
+.pgroups{display:flex;flex-direction:column;gap:12px}
+.pgroup h4{margin:0 0 6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;gap:8px;align-items:center}
+.pgroup h4 em{font-style:normal;font-weight:500;letter-spacing:0;text-transform:none;background:var(--pink);color:#fff;border-radius:999px;padding:0 7px;font-size:11px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--white);border-radius:999px;padding:5px 11px;font-size:12px;text-align:left;line-height:1.3;display:inline-flex;gap:6px;align-items:center}
+.chip code{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.chip:hover{border-color:var(--ink)}
+.chip[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:var(--white)}
+.chip[aria-pressed=true] code{color:#c9c3c5}
+.chip.alarm{border-color:#f3b5cf}
+.chip.hide{display:none}
+.pfilter{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.pfilter .inp{max-width:280px}
+.selsum{font-size:12px;color:var(--muted)}
+.selsum b{color:var(--ink)}
+
+/* adres */
+.addr{font-style:normal;line-height:1.6}
+.addr b{font-weight:600}
+
+/* lijstbalk */
+.listbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.lsearch{display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--line);border-radius:999px;padding:4px 4px 4px 14px;flex:1;min-width:240px;max-width:520px}
+.lsearch input{border:0;outline:0;background:transparent;flex:1;min-width:0;padding:5px 0}
+.count{font-size:12px;color:var(--muted)}
+.count b{color:var(--ink)}
+.bulk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px}
+.bulk .sel{width:auto;min-width:230px;min-height:32px;padding-block:5px}
+.pager{display:flex;gap:4px;align-items:center;flex-wrap:wrap;font-size:12.5px}
+.pager button{min-width:32px;height:32px;border-radius:999px;padding:0 8px}
+.pager button.on{background:var(--ink);color:var(--white)}
+.pager button:hover:not(.on){background:var(--hero)}
+.filters details{border-bottom:1px solid var(--line)}
+.filters summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;padding:11px 2px;font-weight:600;font-size:12.5px}
+.filters summary::-webkit-details-marker{display:none}
+.filters summary::after{content:"+";color:var(--muted);font-weight:400;font-size:16px}
+.filters details[open] summary::after{content:"–"}
+.filters summary small{font-weight:500;color:var(--pink-d);margin-left:auto;margin-right:10px}
+.flist{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:1px;max-height:260px;overflow:auto}
+.flist li a{display:flex;justify-content:space-between;gap:8px;padding:5px 8px;border-radius:8px;text-decoration:none;font-size:12.5px;cursor:pointer}
+.flist li a:hover{background:var(--hero)}
+.flist li a.on{background:var(--ink);color:var(--white)}
+.flist li a span{color:var(--muted);font-variant-numeric:tabular-nums}
+.flist li a.on span{color:#c9c3c5}
+.daterange{display:flex;gap:6px;margin-bottom:10px}
+.daterange .inp{min-height:32px;padding:5px 8px}
+
+/* =========================================================
+   SMAAK 1 · STUDIO — webshop 1-op-1: zachte kaarten, overzicht + vaste samenvatting
+   ========================================================= */
+.v1 .l-wrap{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start}
+.v1 .fpanel{padding:8px 18px 14px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+.v1 .fpanel h3{font-family:var(--display);font-size:16px;margin:10px 0 4px;display:flex;justify-content:space-between;align-items:center}
+.v1 .l-main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.v1 .l-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.v1 .l-head h1{font-family:var(--display);font-size:34px;letter-spacing:-.03em;margin:0;line-height:1}
+.v1 .l-head p{margin:6px 0 0;color:var(--muted)}
+.v1 .quickviews{display:flex;gap:8px;flex-wrap:wrap}
+.v1 .qv{border:1px solid var(--line);background:var(--white);border-radius:999px;padding:7px 14px;font-size:12.5px;display:inline-flex;gap:8px;align-items:center}
+.v1 .qv span{color:var(--muted);font-variant-numeric:tabular-nums}
+.v1 .qv.on{background:var(--ink);color:var(--white);border-color:var(--ink)}
+.v1 .qv.on span{color:#c9c3c5}
+.v1 .tcard{overflow:hidden}
+.v1 .tcard .tbar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.v1 .tcard .tfoot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 16px}
+@media (max-width:980px){.v1 .l-wrap{grid-template-columns:1fr}.v1 .fpanel{position:static;max-height:none}}
+
+.v1 .d-wrap{display:grid;grid-template-columns:190px minmax(0,1fr) 320px;gap:20px;align-items:start}
+.v1 .toc{position:sticky;top:12px;display:flex;flex-direction:column;gap:2px;font-size:13px}
+.v1 .toc .lbl{padding:0 10px 6px}
+.v1 .toc a{padding:8px 12px;border-radius:12px;text-decoration:none;display:flex;justify-content:space-between;gap:6px}
+.v1 .toc a:hover{background:var(--hero)}
+.v1 .toc a.on{background:var(--white);font-weight:600;box-shadow:inset 3px 0 0 var(--pink)}
+.v1 .toc a span{color:var(--muted);font-size:11.5px}
+.v1 .d-main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.v1 .sec{padding:22px 24px;scroll-margin-top:12px}
+.v1 .sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.v1 .sec-h h2{font-family:var(--display);font-size:20px;margin:0;letter-spacing:-.015em}
+.v1 .sec-h p{margin:0;color:var(--muted);font-size:12.5px}
+.v1 .sub{font-family:var(--display);font-size:14px;font-weight:600;margin:20px 0 10px;padding-top:16px;border-top:1px solid var(--line)}
+.v1 .side{position:sticky;top:12px;display:flex;flex-direction:column;gap:12px}
+.v1 .sum{padding:20px}
+.v1 .sum .id{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.v1 .sum h3{font-family:var(--display);font-size:26px;letter-spacing:-.02em;margin:2px 0 10px;line-height:1.05}
+.v1 .sum dl{display:grid;grid-template-columns:auto 1fr;gap:9px 12px;margin:14px 0 0;font-size:12.5px}
+.v1 .sum dt{color:var(--muted)}
+.v1 .sum dd{margin:0;font-weight:500;text-align:right}
+.v1 .count-dl{background:var(--rose);border-radius:var(--r-m);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.v1 .count-dl b{font-family:var(--display);font-size:22px;color:var(--pink-d)}
+.v1 .actgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.v1 .actgrid .btn{justify-content:flex-start}
+.v1 .savebox{padding:14px;display:flex;flex-direction:column;gap:8px}
+.v1 .savebox .btn{justify-content:center}
+.v1 .d-title{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:14px 0 18px}
+.v1 .d-title h1{font-family:var(--display);font-size:34px;letter-spacing:-.03em;margin:0;line-height:1}
+.v1 .d-title p{margin:6px 0 0;color:var(--muted)}
+@media (max-width:1180px){.v1 .d-wrap{grid-template-columns:minmax(0,1fr) 300px}.v1 .toc{display:none}}
+@media (max-width:860px){.v1 .d-wrap{grid-template-columns:1fr}.v1 .side{position:static}}
+
+/* =========================================================
+   SMAAK 2 · WERKBANK — compact, filterbalk, gegroepeerd op deadline, master–detail
+   ========================================================= */
+.v2{font-size:12.5px}
+.v2 .card{border-radius:14px}
+.v2 .fbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.v2 .fdrop{position:relative}
+.v2 .fdrop select{appearance:none;border:1px solid var(--line);border-radius:999px;background:var(--white);padding:5px 26px 5px 11px;font-size:12px;cursor:pointer;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 13px) 50%,calc(100% - 9px) 50%;background-size:4px 4px;background-repeat:no-repeat}
+.v2 .fdrop select.set{background-color:var(--ink);color:var(--white);border-color:var(--ink)}
+.v2 table.t td{padding:7px 10px}
+.v2 table.t th{padding:7px 10px}
+.v2 .grp td{background:var(--paper)!important;font-family:var(--display);font-weight:600;font-size:13px;padding:8px 10px;position:sticky;top:30px}
+.v2 .grp td small{font-family:var(--body);font-weight:500;color:var(--muted);margin-left:8px}
+.v2 .grp.today td{color:var(--red)}
+.v2 .l-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line)}
+.v2 .l-top h1{font-family:var(--display);font-size:20px;margin:0;letter-spacing:-.02em}
+.v2 .cellstack{display:flex;flex-direction:column;gap:1px}
+.v2 .cellstack small{color:var(--muted);font-size:11.5px}
+.v2 .split{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;align-items:start}
+.v2 .queue{position:sticky;top:12px;max-height:calc(100vh - 24px);display:flex;flex-direction:column;overflow:hidden}
+.v2 .queue .qh{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.v2 .queue .qh b{font-family:var(--display);font-size:14px}
+.v2 .queue ul{list-style:none;margin:0;padding:4px;overflow:auto}
+.v2 .queue li a{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:8px 10px;border-radius:10px;text-decoration:none;cursor:pointer}
+.v2 .queue li a:hover{background:var(--sel)}
+.v2 .queue li a.on{background:var(--rose);box-shadow:inset 3px 0 0 var(--pink)}
+.v2 .queue li a .mono{font-weight:600}
+.v2 .queue li a small{color:var(--muted);font-size:11.5px;grid-column:1/-1}
+.v2 .dhead{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--white);z-index:2;border-radius:14px 14px 0 0}
+.v2 .dhead h1{font-family:var(--display);font-size:20px;margin:0;letter-spacing:-.02em}
+.v2 .dhead .facts{display:flex;gap:16px;flex-wrap:wrap;font-size:12px}
+.v2 .dhead .facts span{display:flex;flex-direction:column}
+.v2 .dhead .facts small{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.v2 .dhead .save{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.v2 .abar{display:flex;gap:4px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--paper)}
+.v2 .cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
+.v2 .cols>div{padding:14px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:18px;min-width:0}
+.v2 .cols>div:last-child{border-right:0}
+.v2 .blk h3{font-family:var(--display);font-size:13px;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.05em}
+.v2 .blk h3 small{font-family:var(--body);text-transform:none;letter-spacing:0;font-weight:500;color:var(--muted)}
+.v2 .wide{border-top:1px solid var(--line);padding:14px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.v2 .wide2{border-top:1px solid var(--line);padding:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.v2 .inp,.v2 .sel{min-height:30px;padding:5px 9px;border-radius:8px}
+.v2 .sel{padding-right:26px}
+.v2 .fgrid{gap:10px 12px}
+.v2 .chk{padding:2px 0;font-size:12.5px}
+.v2 .chip{padding:3px 9px;font-size:11.5px}
+.v2 .rte-area{min-height:64px}
+.v2 .plist details{border-top:1px solid var(--line)}
+.v2 .plist summary{cursor:pointer;padding:6px 0;display:flex;justify-content:space-between;font-weight:600;font-size:12px;list-style:none}
+.v2 .plist summary::-webkit-details-marker{display:none}
+.v2 .plist summary em{font-style:normal;color:var(--muted);font-weight:500}
+.v2 .plist summary em.has{color:var(--pink-d)}
+.v2 .plist .chk{padding-left:4px}
+@media (max-width:1280px){.v2 .cols{grid-template-columns:1fr 1fr}.v2 .cols>div:nth-child(2){border-right:0}.v2 .cols>div:last-child{grid-column:1/-1;border-top:1px solid var(--line)}.v2 .wide{grid-template-columns:1fr 1fr}}
+@media (max-width:980px){.v2 .split{grid-template-columns:1fr}.v2 .queue{position:static;max-height:260px}}
+@media (max-width:700px){.v2 .cols,.v2 .wide,.v2 .wide2{grid-template-columns:1fr}.v2 .cols>div{border-right:0;border-top:1px solid var(--line)}}
+
+/* =========================================================
+   SMAAK 3 · PRODUCTIEVLOER — kanban op status, opdracht als werkbon met tabbladen
+   ========================================================= */
+.v3 .l-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.v3 .l-head h1{font-family:var(--display);font-size:28px;letter-spacing:-.03em;margin:0}
+.v3 .seg{display:inline-flex;background:var(--hero);border-radius:999px;padding:3px}
+.v3 .seg button{padding:6px 13px;border-radius:999px;font-size:12.5px}
+.v3 .seg button.on{background:var(--white);font-weight:600}
+.v3 .board{display:grid;grid-template-columns:repeat(5,minmax(250px,1fr));gap:12px;overflow-x:auto;padding-bottom:8px}
+.v3 .col{background:var(--hero);border-radius:20px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.v3 .col-h{display:flex;justify-content:space-between;align-items:center;padding:4px 6px 6px}
+.v3 .col-h b{font-family:var(--display);font-size:14px}
+.v3 .col-h span{font-size:12px;color:var(--muted);background:var(--white);border-radius:999px;padding:1px 9px}
+.v3 .kc{background:var(--white);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px;border:1px solid transparent;cursor:pointer;text-align:left;width:100%}
+.v3 .kc:hover{border-color:var(--ink)}
+.v3 .kc .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.v3 .kc .top .mono{font-weight:600;font-size:13px}
+.v3 .kc .who{font-weight:600}
+.v3 .kc .who small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.v3 .kc .meta{display:flex;flex-wrap:wrap;gap:4px}
+.v3 .kc .foot{display:flex;justify-content:space-between;gap:6px;font-size:11.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:7px}
+.v3 .kc .st{font-size:11.5px;color:var(--muted)}
+.v3 .ticket{overflow:hidden}
+.v3 .t-hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:0;background:linear-gradient(135deg,#efeaf7 0%,#f8e8f0 100%)}
+.v3 .t-hero .a{padding:24px 26px;display:flex;flex-direction:column;gap:10px}
+.v3 .t-hero .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.v3 .t-hero h1{font-family:var(--display);font-size:40px;line-height:1;margin:0;letter-spacing:-.035em}
+.v3 .t-hero .spec{display:flex;flex-wrap:wrap;gap:6px}
+.v3 .t-hero .spec span{background:rgba(255,255,255,.75);border-radius:999px;padding:4px 11px;font-size:12px}
+.v3 .t-hero .b{padding:24px 26px;border-left:1px dashed #cfc6d6;display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;align-content:start}
+.v3 .t-hero .b .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.v3 .t-hero .b .v{font-family:var(--display);font-size:18px;font-weight:600;line-height:1.2}
+.v3 .t-hero .b .v.big{font-size:26px;color:var(--pink-d)}
+.v3 .flow{display:flex;gap:0;padding:14px 26px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow-x:auto;background:var(--white)}
+.v3 .flow span{flex:1;min-width:110px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted)}
+.v3 .flow span::before{content:"";height:5px;border-radius:999px;background:var(--line);margin-right:4px}
+.v3 .flow span.done::before{background:var(--ink)}
+.v3 .flow span.now{color:var(--pink-d);font-weight:600}
+.v3 .flow span.now::before{background:var(--pink)}
+.v3 .t-tools{display:flex;gap:6px;flex-wrap:wrap;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--line)}
+.v3 .tabs{display:flex;gap:2px;padding:0 14px;border-bottom:1px solid var(--line);overflow-x:auto;background:var(--white)}
+.v3 .tabs button{padding:14px 14px 12px;font-weight:500;border-bottom:3px solid transparent;white-space:nowrap;display:flex;gap:7px;align-items:center;color:var(--muted)}
+.v3 .tabs button.on{border-color:var(--pink);color:var(--ink);font-weight:600}
+.v3 .tabs button em{font-style:normal;background:var(--hero);border-radius:999px;font-size:11px;padding:0 7px;color:var(--ink)}
+.v3 .tabpane{padding:22px 26px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+.v3 .tabpane .box{display:flex;flex-direction:column;gap:12px;min-width:0}
+.v3 .tabpane .box h3{font-family:var(--display);font-size:16px;margin:0}
+.v3 .tabpane .box.full{grid-column:1/-1}
+.v3 .t-save{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:14px 20px;border-top:1px solid var(--line);background:var(--paper)}
+@media (max-width:900px){.v3 .t-hero{grid-template-columns:1fr}.v3 .t-hero .b{border-left:0;border-top:1px dashed #cfc6d6}.v3 .tabpane{grid-template-columns:1fr}.v3 .t-hero h1{font-size:30px}}
+
+/* =========================================================
+   SMAAK 4 · NACHTDIENST — donker, statusvoortgang, drie kolommen
+   ========================================================= */
+#app.v4{--paper:#151213;--white:#1f1b1c;--ink:#f2eef0;--muted:#a59fa2;--line:#352f31;--hero:#2b2628;--sel:#262123;--rose:#3a1628;--pink-soft:#4a1631;--pink-d:#ff4fa0;
+  --green:#6fd3a5;--green-bg:#183026;--amber:#f2b860;--amber-bg:#352610;--blue:#93b2ff;--blue-bg:#1b2440;--red:#ff8a80;--red-bg:#3a1715;--warn-bg:#352d0e;--warn:#f4dd7a;color-scheme:dark}
+.v4 .alert{border-color:#5a4b12}
+.v4 .rail a.on{background:var(--pink);color:#fff}
+.v4 .chip[aria-pressed=true]{background:var(--pink);border-color:var(--pink);color:#fff}
+.v4 .chip[aria-pressed=true] code{color:#ffd1e6}
+.v4 .tag.blanco{background:#f2eef0;color:#151213}
+.v4 .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.v4 .kpi{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:14px 16px;text-align:left;display:flex;flex-direction:column;gap:2px}
+.v4 .kpi:hover{border-color:var(--muted)}
+.v4 .kpi.on{border-color:var(--pink);box-shadow:inset 0 0 0 1px var(--pink)}
+.v4 .kpi small{color:var(--muted);font-size:12px}
+.v4 .kpi b{font-family:var(--display);font-size:28px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.v4 .kpi i{font-style:normal;font-size:11.5px;color:var(--muted)}
+.v4 .cmd{display:flex;gap:8px;align-items:center;background:var(--white);border:1px solid var(--line);border-radius:16px;padding:8px 8px 8px 14px;margin-bottom:12px;flex-wrap:wrap}
+.v4 .cmd input{flex:1;min-width:200px;border:0;outline:0;background:transparent;padding:6px 0}
+.v4 .cmd .tok{background:var(--hero);border-radius:8px;padding:4px 9px;font-size:12px;display:inline-flex;gap:6px;align-items:center}
+.v4 .cmd .tok b{color:var(--muted);font-weight:500}
+.v4 .rows{display:flex;flex-direction:column;gap:6px}
+.v4 .r{display:grid;grid-template-columns:28px 92px minmax(170px,1.3fr) 150px minmax(200px,1.4fr) minmax(170px,1fr) 120px 92px;gap:14px;align-items:center;background:var(--white);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:1080px}
+.v4 .r:hover{border-color:var(--muted)}
+.v4 .r.picked{border-color:var(--pink)}
+.v4 .r .mono{font-weight:600;color:var(--pink-d);cursor:pointer}
+.v4 .r .s{font-size:11.5px;color:var(--muted);display:block}
+.v4 .rh{background:transparent;border:0;padding:4px 14px;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.v4 .rh:hover{border:0}
+.v4 .steps{display:flex;gap:3px;margin-top:5px}
+.v4 .steps i{height:4px;flex:1;border-radius:999px;background:var(--line)}
+.v4 .steps i.f{background:var(--muted)}
+.v4 .steps i.c{background:var(--pink)}
+.v4 .tri{display:grid;grid-template-columns:240px minmax(0,1fr) 300px;gap:16px;align-items:start}
+.v4 .vstep{position:sticky;top:12px;padding:16px}
+.v4 .vstep ol{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column}
+.v4 .vstep li button{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:7px 8px;border-radius:10px;font-size:12.5px;color:var(--muted);position:relative}
+.v4 .vstep li button:hover{background:var(--hero);color:var(--ink)}
+.v4 .vstep li button::before{content:"";width:10px;height:10px;border-radius:50%;border:2px solid var(--line);margin-top:3px;flex-shrink:0;background:var(--paper)}
+.v4 .vstep li.past button{color:var(--ink)}
+.v4 .vstep li.past button::before{background:var(--muted);border-color:var(--muted)}
+.v4 .vstep li.cur button{background:var(--rose);color:var(--ink);font-weight:600}
+.v4 .vstep li.cur button::before{background:var(--pink);border-color:var(--pink);box-shadow:0 0 0 4px var(--pink-soft)}
+.v4 .vstep code{font-family:var(--mono);font-size:11px;color:var(--muted);margin-right:2px}
+.v4 .acc{display:flex;flex-direction:column;gap:10px;min-width:0}
+.v4 .acc details{background:var(--white);border:1px solid var(--line);border-radius:18px}
+.v4 .acc summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:14px 18px}
+.v4 .acc summary::-webkit-details-marker{display:none}
+.v4 .acc summary h2{font-family:var(--display);font-size:15px;margin:0;font-weight:600}
+.v4 .acc summary .peek{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.v4 .acc summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-right:4px}
+.v4 .acc details[open] summary::after{transform:rotate(225deg)}
+.v4 .acc details[open] summary{border-bottom:1px solid var(--line)}
+.v4 .acc .in{padding:18px;display:flex;flex-direction:column;gap:16px}
+.v4 .ctx{position:sticky;top:12px;display:flex;flex-direction:column;gap:12px}
+.v4 .ctx .card{padding:16px}
+.v4 .ctx h3{font-family:var(--display);font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.08em}
+.v4 .clock{font-family:var(--display);font-size:34px;font-weight:600;letter-spacing:-.03em;color:var(--pink-d);line-height:1}
+.v4 .ctx .acts2{display:flex;flex-wrap:wrap;gap:6px}
+.v4 .dtop{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}
+.v4 .dtop h1{font-family:var(--display);font-size:28px;margin:0;letter-spacing:-.03em}
+.v4 .dtop h1 span{color:var(--muted);font-weight:400}
+@media (max-width:1200px){.v4 .tri{grid-template-columns:minmax(0,1fr) 290px}.v4 .vstep{display:none}.v4 .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:860px){.v4 .tri{grid-template-columns:1fr}.v4 .ctx{position:static}.v4 .kpis{grid-template-columns:1fr 1fr}}
+
+/* =========================================================
+   SMAAK 5 · RUST — afdelingstabs, ruime kaarten, opdracht als zijpaneel
+   ========================================================= */
+.v5 .l-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.v5 .l-head h1{font-family:var(--display);font-size:40px;letter-spacing:-.035em;margin:0;line-height:1}
+.v5 .l-head p{margin:8px 0 0;color:var(--muted);font-size:14px}
+.v5 .afdtabs{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 12px}
+.v5 .afdtabs button{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:10px 14px;display:flex;flex-direction:column;align-items:flex-start;gap:0;min-width:120px}
+.v5 .afdtabs button b{font-family:var(--display);font-size:20px;font-variant-numeric:tabular-nums}
+.v5 .afdtabs button span{font-size:12px;color:var(--muted)}
+.v5 .afdtabs button.on{background:var(--ink);color:var(--white);border-color:var(--ink)}
+.v5 .afdtabs button.on span{color:#c9c3c5}
+.v5 .morefilters{margin-bottom:14px}
+.v5 .morefilters>summary{cursor:pointer;list-style:none;display:inline-flex;gap:8px;align-items:center;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--white);font-weight:500}
+.v5 .morefilters>summary::-webkit-details-marker{display:none}
+.v5 .morefilters .fgrid5{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px 22px;margin-top:12px;padding:16px 20px}
+.v5 .morefilters .fgrid5 h4{margin:10px 0 6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.v5 .ocards{display:flex;flex-direction:column;gap:8px}
+.v5 .oc{display:grid;grid-template-columns:24px 150px minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) 120px;gap:18px;align-items:center;background:var(--white);border:1px solid var(--line);border-radius:20px;padding:16px 20px;cursor:pointer}
+.v5 .oc:hover{border-color:var(--ink)}
+.v5 .oc.cur{border-color:var(--pink);box-shadow:0 0 0 3px var(--pink-soft)}
+.v5 .oc .idbig{font-family:var(--mono);font-weight:600;font-size:15px}
+.v5 .oc .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;display:block;margin-bottom:2px}
+.v5 .oc .x{font-size:12px;color:var(--muted)}
+.v5 .oc .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+@media (max-width:1000px){.v5 .oc{grid-template-columns:24px 1fr 1fr}.v5 .oc>.hidem{display:none}}
+.v5 .scrim{position:fixed;inset:0;background:rgba(35,31,32,.38);z-index:20}
+.v5 .drawer{position:fixed;top:0;right:0;bottom:0;width:min(820px,100%);background:var(--paper);z-index:21;display:flex;flex-direction:column;box-shadow:-20px 0 60px rgba(0,0,0,.18);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+.v5 .dr-h{background:var(--white);padding:18px 24px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.v5 .dr-h .r1{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.v5 .dr-h h2{font-family:var(--display);font-size:28px;margin:0;letter-spacing:-.03em;line-height:1.05}
+.v5 .dr-h h2 small{display:block;font-family:var(--body);font-size:12.5px;font-weight:400;color:var(--muted);letter-spacing:0;margin-top:4px}
+.v5 .dr-b{flex:1;overflow:auto;padding:18px 24px;display:flex;flex-direction:column;gap:12px}
+.v5 .dr-f{background:var(--white);border-top:1px solid var(--line);padding:12px 24px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.v5 .must{background:var(--white);border-radius:20px;border:1px solid var(--line);padding:18px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:640px){.v5 .must{grid-template-columns:1fr}}
+.v5 .dsec{background:var(--white);border:1px solid var(--line);border-radius:20px}
+.v5 .dsec>summary{cursor:pointer;list-style:none;padding:15px 18px;display:flex;align-items:center;gap:12px}
+.v5 .dsec>summary::-webkit-details-marker{display:none}
+.v5 .dsec>summary h3{font-family:var(--display);font-size:15px;margin:0;font-weight:600;min-width:130px}
+.v5 .dsec>summary .peek{color:var(--muted);font-size:12.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v5 .dsec>summary .plus{width:26px;height:26px;border-radius:50%;background:var(--hero);display:grid;place-items:center;flex-shrink:0;font-size:15px;color:var(--muted)}
+.v5 .dsec[open]>summary .plus{transform:rotate(45deg)}
+.v5 .dsec[open]>summary{border-bottom:1px solid var(--line)}
+.v5 .dsec .in{padding:18px;display:flex;flex-direction:column;gap:16px}
+.v5 .dsec .in h4{margin:6px 0 0;font-family:var(--display);font-size:14px}
+</style>
+
+<div class="picker">
+  <div class="picker-top">
+    <h1><span class="logo">PP</span>Orderscherm <small>smaak 5 · Rust · voorbeelddata</small></h1>
+    <div class="flavors" id="flavors" hidden></div>
+    <div class="screens" style="margin-left:auto" role="group" aria-label="Scherm">
+      <button id="scr-list" data-screen="list">Overzicht</button>
+      <button id="scr-detail" data-screen="detail">Opdracht 320279</button>
+    </div>
+  </div>
+  <div class="pitch" id="pitch"></div>
+</div>
+<div id="app"></div>
+
+<script>
+/* ---------------- Iconen ---------------- */
+const P={
+ search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+ alert:'<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/>',
+ home:'<path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/>',
+ file:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+ list:'<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+ pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ x:'<path d="M6 6l12 12M18 6 6 18"/>',
+ mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+ print:'<path d="M7 9V3h10v6M7 17H4v-7h16v7h-3"/><path d="M7 14h10v7H7z"/>',
+ box:'<path d="M3 7 12 3l9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/>',
+ truck:'<path d="M2 6h12v10H2zM14 10h4l3 3v3h-7"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+ bike:'<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9 8 6H6"/>',
+ copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/>',
+ clock:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
+ cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+ hist:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 8v4l3 2"/>',
+ trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+ check:'<path d="m5 12 5 5 9-10"/>',
+ user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
+ pin:'<path d="M12 21s7-6 7-11a7 7 0 1 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+ store:'<path d="M4 9h16l-1-5H5zM5 9v11h14V9M10 20v-6h4v6"/>',
+ bon:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+ filter:'<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',
+ board:'<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="10" rx="1.5"/><rect x="17" y="4" width="4" height="13" rx="1.5"/>',
+ ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/>',
+ dl:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'
+};
+const ic=(n,s)=>`<svg class="i" viewBox="0 0 24 24"${s?` style="width:${s}px;height:${s}px"`:''} aria-hidden="true">${P[n]}</svg>`;
+
+/* ---------------- Data (uit de huidige schermen) ---------------- */
+const AFD=['CS | Balie printen','Logistiek | Orderpicking','Productie | Grootformaat Basic','Productie | Grootformaat HQ','Productie | Grootformaat Latex','Productie | Grootformaat Standaard','Productie | Klein formaat','Productie | Scanner & supplies'];
+const PRIOS=['00-0 EXTRA GEHEIMHOUDING!','00-1 Extra aandacht | Klacht herprint','00-2 Aangepaste bon - WEBSITE DOWN','000 URGENT: BIG FIVE','01-1-1 Urgent | Direct printen','01-1-2 Aangepast Tijdslip','01-2 Urgent | Medium order','01-3 Urgent | Grote order','01-4 PRIO VANUIT PRODUCTIE','02-1 Extra aandacht | Custom product','02-2 Extra aandacht | Herprint (geen klacht)','02-3 Extra aandacht | Nieuwe/speciale klant','02-4 Extra aandacht | Montage opdracht','02-5 Extra aandacht | Overig','02-6 Extra aandacht | Panelen bestellen info@vlobkunststoffen.nl (pre press/cs)','02-7 Datamerge','02-8 Let op: Looprichting papier','02-9-0 Let op: Breedlopend papier?','02-9-1 Let op: Langlopend papier?','03 Product: Hardcover','03 Product: Magneetposter','03 Product: Softcover','04 Afwerking: Cut Contour','04 Afwerking: SF Lamineren glans','04 Afwerking: SF Lamineren mat','04 Afwerking: SF Lamineren Whiteboard','04 Afwerking: KF Lamineren/plastificeren','04 Afwerking: Printen CMYK + WHITE (wit boven)','04 Afwerking: Printen WHITE (geen cmyk)','04 Afwerking: Printen WHITE + CMYK (wit onder)','04 Afwerking: Ronde hoeken','05 Materiaal: Blueback 115 g/m²','05 Materiaal: Citylight mat 150 g/m²','05 Materiaal: Deep mat 180 g/m²','05 Materiaal: Deep mat 250 g/m²','05 Materiaal: Fine Art paper felt 270 g/m²','05 Materiaal: HV gestreken mat 120 g/m²','05 Materiaal: MC silk 130 g/m²','05 Materiaal: MC silk 250 g/m²','05 Materiaal: Photo paper satin 190 g/m²','05 Materiaal: Recycled white mat 120 g/m²','06 Kwaliteit: Basic','06 Kwaliteit: High Quality','06 Kwaliteit: Standaard','ERASMUS RECRUITMENT BEZORGEN TUSSEN 12:00 en 14:00!','KLANT PRIO: Regelmatig zwarte bestanden','KLANT PRIO: Speciale klant'];
+const PGROUPS=[
+ ['Let op & extra aandacht',p=>/^00-|^02-/.test(p)],
+ ['Urgentie',p=>/^000|^01-/.test(p)],
+ ['Product',p=>/^03/.test(p)],
+ ['Afwerking',p=>/^04/.test(p)],
+ ['Materiaal',p=>/^05/.test(p)],
+ ['Kwaliteit',p=>/^06/.test(p)],
+ ['Klant & bezorging',p=>/^(ERASMUS|KLANT)/.test(p)]
+];
+const splitP=p=>{const m=p.match(/^([0-9-]+)\s+(.*)$/);return m?[m[1],m[2]]:['',p]};
+const ALARM=/URGENT|Urgent|Klacht|GEHEIM|WEBSITE DOWN|PRIO/;
+
+const ST={'00':'Offerte','01':'Wacht op betaling','02':'Controle bestanden','03':'Wacht op akkoord proef','04':'Klaar voor productie','05':'In productie','06':'Klaar voor verzending','07':'Klaar om af te halen','08':'Verzonden','09':'Afgehaald','32':'Onvolledig | wacht op klant'};
+const STCOUNT={'00':12,'01':38,'02':21,'03':9,'04':47,'05':63,'06':18,'07':24,'08':31210,'09':18902,'32':6};
+const KEYS=['00','01','02','03','04','05','06','07','08','09','32'];
+const phase=c=>({'00':'prep','01':'prep','02':'prep','03':'prep','32':'hold','04':'ready','05':'prod','06':'done','07':'done','08':'closed','09':'closed'})[c];
+const stage=c=>({'00':0,'01':0,'02':0,'03':0,'32':0,'04':1,'05':2,'06':3,'07':3,'08':4,'09':4})[c];
+const STAGES=['Voorbereiding','Klaar voor productie','In productie','Gereed','Afgerond'];
+const pill=c=>`<span class="pill ph-${phase(c)}">${c} ${ST[c]}</span>`;
+
+const VERZ=['Afhalen in Delft','Afhalen in Rotterdam','Afhalen in Den Haag','Verzenden via PostNL','Directe koerier Rotterdam (spoed)','Directe koerier Delft','Fietskoerier'];
+const DOOR=['PostNL','Focus koeriers','Fier fietskoeriers','Rotterdamse Fietskoerier'];
+const verzIc=v=>/Afhalen/.test(v)?'store':/Fiets/.test(v)?'bike':/koerier/.test(v)?'truck':'box';
+
+// id, afdeling, prioriteit, ontvangen, deadline-dag (0 = vandaag), tijd, blanco, verzending, door, status, type, proefdruk, contact, gewijzigd, betaalmethode, nabetaling
+const R=[
+ [320279,'Klein formaat','','15 okt 14:58',1,'15:00',false,'Afhalen in Delft','','04','Gekocht','',['Suzanne van der Zanden','De Kleine Keizerin','0644089603'],['15 okt 15:02','Tim'],'prepaid',''],
+ [320278,'Klein formaat','','15 okt 14:55',5,'15:00',false,'Afhalen in Rotterdam','','04','Gekocht','',['Jasper Hoek','Studio Noord','0612345870'],['15 okt 14:56','Systeem'],'prepaid',''],
+ [320277,'Grootformaat HQ','06 Kwaliteit: High Quality','15 okt 14:29',1,'16:00',false,'Afhalen in Rotterdam','','05','Gekocht','',['Lotte Verbeek','','0681122334'],['15 okt 15:40','Marco'],'prepaid',''],
+ [320276,'Klein formaat','','15 okt 14:22',0,'17:00',false,'Verzenden via PostNL','PostNL','04','Gekocht','',['Daan Smit','Smit Advies','0107654321'],['15 okt 14:30','Coraline'],'prepaid',''],
+ [320275,'Grootformaat Standaard','','15 okt 14:17',4,'15:00',false,'Directe koerier Rotterdam (spoed)','Rotterdamse Fietskoerier','04','Gekocht','',['Noor el Amrani','Rotterdam Partners','0687766554'],['15 okt 14:20','Systeem'],'prepaid',''],
+ [320274,'Klein formaat','','15 okt 14:06',2,'15:00',false,'Afhalen in Rotterdam','','32','Op rekening','',['Ruben de Wit','Hogeschool Rotterdam','0102233445'],['15 okt 14:44','Coraline'],'factuur',''],
+ [320273,'Klein formaat','','15 okt 14:01',5,'17:00',false,'Verzenden via PostNL','PostNL','04','Gekocht','',['Iris Bakker','','0655443322'],['15 okt 14:02','Systeem'],'prepaid',''],
+ [320272,'Klein formaat','01-3 Urgent | Grote order','15 okt 13:54',0,'16:00',false,'Directe koerier Rotterdam (spoed)','Rotterdamse Fietskoerier','03','Gekocht','Proef verstuurd',['Mila Jansen','Erasmus MC','0107040704'],['15 okt 14:10','Marco'],'prepaid',''],
+ [320271,'Klein formaat','','15 okt 13:41',0,'17:00',true,'Afhalen in Den Haag','','05','Gekocht','',['Thijs Visser','Visser & Co','0703456789'],['15 okt 13:50','Systeem'],'prepaid',''],
+ [320270,'Grootformaat Latex','02-1 Extra aandacht | Custom product','15 okt 13:37',3,'12:00',false,'Verzenden via PostNL','PostNL','02','Op rekening','Proef akkoord',['Sanne Mulder','Kunsthal','0104400301'],['15 okt 13:58','Tim'],'factuur','Nabetaling open'],
+ [320269,'Klein formaat','','15 okt 13:20',1,'15:00',false,'Afhalen in Delft','','06','Gekocht','',['Bram Peters','TU Delft – VSV','0152781234'],['15 okt 13:31','Systeem'],'prepaid',''],
+ [320268,'Scanner & supplies','','15 okt 13:12',2,'15:00',false,'Verzenden via PostNL','PostNL','07','Gekocht','',['Eva de Groot','','0633221100'],['15 okt 13:12','Systeem'],'prepaid',''],
+ [320267,'Grootformaat Standaard','03 Product: Magneetposter','15 okt 12:58',1,'12:00',false,'Fietskoerier','Fier fietskoeriers','05','Gekocht','',['Yara Bos','Bos Interieur','0612987654'],['15 okt 13:44','Marco'],'prepaid',''],
+ [320266,'Klein formaat','','15 okt 12:44',0,'15:00',false,'Afhalen in Rotterdam','','07','Gekocht','',['Koen Dekker','Dekker Bouw','0104561237'],['15 okt 12:59','Coraline'],'prepaid',''],
+ [320265,'Klein formaat','01-1-1 Urgent | Direct printen','15 okt 12:30',0,'14:00',false,'Afhalen in Delft','','05','Gekocht','',['Fleur Willems','Café De Engel','0152140000'],['15 okt 12:31','Tim'],'prepaid',''],
+ [320264,'Grootformaat Basic','','15 okt 12:11',6,'17:00',true,'Verzenden via PostNL','PostNL','01','Op rekening','',['Lars Hendriks','Hendriks Events','0656781234'],['15 okt 12:20','Systeem'],'factuur','Nabetaling open'],
+ [320263,'Klein formaat','KLANT PRIO: Speciale klant','15 okt 11:58',2,'12:00',false,'Afhalen in Den Haag','','04','Gekocht','',['Anouk Kramer','Gemeente Den Haag','0703536000'],['15 okt 12:05','Coraline'],'prepaid',''],
+ [320262,'Klein formaat','','15 okt 11:40',0,'12:00',false,'Verzenden via PostNL','PostNL','08','Gekocht','',['Sem van Leeuwen','','0699887766'],['15 okt 12:44','Systeem'],'prepaid',''],
+].map(a=>({id:a[0],afd:a[1],prio:a[2],ontv:a[3],dd:a[4],dt:a[5],blanco:a[6],verz:a[7],door:a[8],st:a[9],type:a[10],proef:a[11],c:a[12],gew:a[13],bet:a[14],nab:a[15]}));
+
+const DAYS=['zo','ma','di','wo','do','vr','za'];
+const dlDate=d=>{const x=new Date(2026,9,15+d);return `${DAYS[x.getDay()]} ${x.getDate()} okt`};
+const dlRel=d=>d===0?'Vandaag':d===1?'Morgen':dlDate(d).replace(/^./,m=>m.toUpperCase());
+const dlCell=r=>`<span class="dl d${Math.min(r.dd,2)}"><b>${dlRel(r.dd)} ${r.dt}</b><small>${new Date(2026,9,15+r.dd).getDate()} oktober 2026</small></span>`;
+const dash='<span class="empty-dash">—</span>';
+
+/* ---------------- Toestand ---------------- */
+const S={v:5,screen:'list',sel:new Set(),tab:'productie',afd:new Set(['Productie | Klein formaat']),prio:new Set(),st:'04',kpi:null,afdTab:'Alle',qv:'Alle',open:{}};
+try{const s=JSON.parse(localStorage.getItem('pp-oms-rust')||'{}');if(s.screen)S.screen=s.screen}catch(e){}
+const save=()=>{try{localStorage.setItem('pp-oms-rust',JSON.stringify({screen:S.screen}))}catch(e){}};
+
+const FLAVORS=[
+ {n:'Studio',t:'De webshop, maar dan achter de schermen.',d:'Zelfde zachte kaarten, roze accenten en rail als printerpro.nl. Rustig, herkenbaar en direct te gebruiken.',
+  p:[['Samenvatting blijft staan','Status, deadline, product, klant en alle actieknoppen staan rechts vast tijdens het scrollen.'],['Logische volgorde','Orderregels direct onder de opdracht; adressen en koeriers onderaan, met inhoudsopgave links.'],['Snelfilters','Bestaande filters als één-klik knoppen boven de tabel; alle filtergroepen inklapbaar met aantallen.']]},
+ {n:'Werkbank',t:'Alles in één blik, voor wie de hele dag orders doet.',d:'Compact en dicht op elkaar. Lijst gegroepeerd per deadlinedag, opdracht naast de wachtrij.',
+  p:[['Gegroepeerd op deadline','Vandaag, morgen, later: wat eerst moet staat bovenaan, met aantal per dag.'],['Wachtrij + opdracht naast elkaar','Spring van order naar order zonder terug naar het overzicht.'],['Drie kolommen, geen scroll','Opdracht, product & notities, afdelingen & prioriteiten tegelijk in beeld.']]},
+ {n:'Productievloer',t:'De opdracht als werkbon.',d:'Overzicht als statusbord; de opdracht leest als een bon met het product groot bovenaan en tabbladen per rol.',
+  p:[['Statusbord','Kolommen per fase; elke kaart toont alle lijstvelden in één oogopslag.'],['Werkbon-kop','Oplage, product, specificatie en deadline groot: wat de drukker moet weten staat eerst.'],['Tabbladen per rol','Productie, Klant, Verzending & adres, Administratie: iedereen ziet eerst wat voor hem telt.']]},
+ {n:'Nachtdienst',t:'Donker regiecentrum voor lange diensten.',d:'Rustig voor de ogen, met de statusvoortgang als rode draad door lijst en opdracht.',
+  p:[['Tellers bovenaan','De aantallen per status uit het filter, als klikbare tegels.'],['Voortgangsbalk per order','Elke rij toont waar de order zit: voorbereiding → afgerond.'],['Statuslijn','Status kiezen vanuit een tijdlijn links; secties tonen ingeklapt al hun waarde.']]},
+ {n:'Rust',t:'Ruim, per afdeling, en de lijst blijft in beeld.',d:'Grote kaarten die ook op een tablet aan de pers werken. De opdracht schuift als paneel over de lijst.',
+  p:[['Afdelingstabs','Klein formaat, Grootformaat, Logistiek: elke afdeling ziet direct haar eigen wachtrij.'],['Zijpaneel','Opdracht openen zonder de lijst kwijt te raken; sluiten en je staat weer op dezelfde plek.'],['Eerst het belangrijke','Status, deadline en verzending bovenaan; de rest inklapbaar met de huidige waarde zichtbaar.']]}
+];
+
+/* ---------------- Gedeelde bouwstenen ---------------- */
+const sel=(id,opts,val,extra='')=>`<select class="sel" id="${id}" ${extra}>${opts.map(o=>`<option${o===val?' selected':''}>${o}</option>`).join('')}</select>`;
+const mini=()=>`<span class="mini"><button title="Wijzigen" aria-label="Wijzigen">${ic('pen',14)}</button><button title="Toevoegen" aria-label="Toevoegen">${ic('plus',14)}</button></span>`;
+const fld=(label,inner,hint='',cls='')=>`<div class="fld ${cls}"><label>${label}</label>${inner}${hint?`<span class="hint">${hint}</span>`:''}</div>`;
+const inp=(id,v='',ph='')=>`<input class="inp" id="${id}" value="${v}" placeholder="${ph}">`;
+const STOPTS=KEYS.map(k=>`${k} ${ST[k]}`);
+const ACTIONS=[['Acties','list'],['Originele bon','file'],['Bon','bon'],['Pakbon','box'],['Koerier','truck'],['E-mail','mail'],['Duplicate','copy'],['Geschiedenis','hist']];
+
+const D=(()=>{let n=0;return p=>p+'-'+(++n)})();
+const B={
+ alert:()=>`<div class="alert">${ic('alert')}LET OP: KLACHT-HERPRINT 1 × eerder gebruikt voor deze opdrachtgever!</div>`,
+ actions:(cls='btn btn-s btn-sm')=>ACTIONS.map(([a,i])=>`<button class="${cls}">${ic(i,14)}${a}</button>`).join(''),
+ save:(stack)=>`<button class="btn btn-d">${ic('trash',14)}Verwijderen</button>${stack?'':'<span style="flex:1"></span>'}<button class="btn btn-s">Opslaan en opnieuw bewerken</button><button class="btn btn-p">${ic('check',14)}Opslaan</button>`,
+ meta:()=>`<div class="fgrid c4">
+   ${fld('ID',`<input class="inp mono" readonly value="320279" id="${D('id')}">`)}
+   ${fld('Website',`<div class="row">${sel(D('web'),['www.printerpro.nl'],'www.printerpro.nl')}${mini()}</div>`)}
+   ${fld('Opdrachtnummer',`<input class="inp mono" readonly value="prosehy" id="${D('onr')}">`)}
+   ${fld('Versie',`<input class="inp mono" readonly value="1792066710307482" id="${D('ver')}">`)}</div>`,
+ status:(cols='c3')=>`<div class="fgrid ${cols}">
+   ${fld('Status',`<div class="row">${sel(D('st'),STOPTS,'04 Klaar voor productie','data-st')}${mini()}</div>`,'<a class="link">Toon alle statussen</a>')}
+   ${fld('Datum deadline',`<div class="row"><input class="inp" type="date" value="2026-10-16" id="${D('dd')}"><span class="quick">Vandaag</span></div><div class="row"><input class="inp" type="time" step="1" value="15:00:00" id="${D('dt')}"><span class="quick">Nu</span></div>`)}
+   ${fld('Status nabetaling',`<div class="row">${sel(D('nab'),['---------','Nabetaling open','Nabetaling voldaan'],'---------')}${mini()}</div>`)}</div>`,
+ afd:()=>`<div>${AFD.map(a=>`<label class="chk"><input type="checkbox" data-afd="${a}"${S.afd.has(a)?' checked':''}>${a}</label>`).join('')}
+   <button class="btn btn-g btn-sm" style="margin-top:4px">${ic('plus',14)}Afdeling toevoegen</button>
+   <div class="note-auto">${ic('check',13)}Automatische selectie op basis producten: <b>[Productie | Klein formaat]</b></div></div>`,
+ prio:(mode='chips')=>{
+   const n=S.prio.size;
+   const head=`<div class="pfilter"><input class="inp" placeholder="Zoek prioriteit…" data-pq id="${D('pq')}"><span class="selsum" data-psum>${n?`<b>${n}</b> geselecteerd`:'Geen prioriteit geselecteerd'}</span></div>`;
+   if(mode==='list') return `<div class="plist">${PGROUPS.map(([g,f])=>{const items=PRIOS.filter(f);const c=items.filter(p=>S.prio.has(p)).length;
+      return `<details${c?' open':''}><summary>${g}<em class="${c?'has':''}">${c?c+' van ':''}${items.length}</em></summary>${items.map(p=>`<label class="chk"><input type="checkbox" data-prio="${p}"${S.prio.has(p)?' checked':''}>${p}</label>`).join('')}</details>`}).join('')}
+      <div class="note-auto">${ic('check',13)}Automatische selectie op basis producten: <b>[ ]</b></div></div>`;
+   return head+`<div class="pgroups">${PGROUPS.map(([g,f])=>{const items=PRIOS.filter(f);const c=items.filter(p=>S.prio.has(p)).length;
+     return `<div class="pgroup"><h4>${g}${c?`<em>${c}</em>`:''}</h4><div class="chips">${items.map(p=>{const [code,txt]=splitP(p);
+       return `<button class="chip${ALARM.test(p)?' alarm':''}" aria-pressed="${S.prio.has(p)}" data-chip="${p}">${code?`<code>${code}</code>`:''}${txt}</button>`}).join('')}</div></div>`}).join('')}</div>
+     <div class="note-auto">${ic('check',13)}Automatische selectie op basis producten: <b>[ ]</b></div>`},
+ proef:()=>`${fld('Proefdrukstatus',`<div class="row">${sel(D('pd'),['---------','Proef verstuurd','Proef akkoord','Proef afgekeurd'],'---------')}${mini()}</div>`)}
+   ${fld('Enveloppen',`<div class="row">${sel(D('env'),['---------','C5','C6','EA5/6'],'---------')}${mini()}</div>`)}`,
+ verz:()=>`${fld('Verzending',`<div class="row">${sel(D('vz'),VERZ,'Afhalen in Delft')}${mini()}</div>`)}
+   ${fld('Verzending door',`<div class="row">${sel(D('vd'),['---------',...DOOR],'---------')}${mini()}</div>`)}
+   ${fld('Blanco verzenden',`<label class="chk"><input type="checkbox" id="${D('bl')}">Blanco verzenden (zonder PrinterPro-afzender)</label>`)}`,
+ contact:()=>`<div class="fgrid c2">
+   ${fld('Opdrachtgever',`<div class="row">${inp(D('og'),'suzanne')}<span class="mini"><button title="Klant openen" aria-label="Klant openen">${ic('ext',14)}</button></span></div>`)}
+   ${fld('Referentie',inp(D('ref'),'flyers cultuurbarbaren'))}
+   ${fld('E-mail',inp(D('em'),'suzanne@dekleinekeizerin.nl'))}
+   ${fld('Telefoon',inp(D('tel'),'0644089603'))}
+   ${fld('Opmerkingen relatie',`<span class="muted">Geen</span>`)}
+   ${fld('Opmerkingen klant',`<span>Geen</span><label class="chk"><input type="checkbox" id="${D('okd')}">Opmerking klant doorhalen</label>`)}
+   ${fld('E-mail klant',`<div><button class="btn btn-s btn-sm">${ic('mail',14)}Verstuur e-mail…</button></div>`,'','full')}</div>`,
+ rte:(label,ph)=>`<div class="fld"><label>${label}</label><div class="rte"><div class="rte-bar"><span>Stijl ▾</span><span>Opmaak ▾</span><i></i><span><b>B</b></span><span><i style="width:auto;background:none;margin:0">I</i></span><span><u>U</u></span><span><s>S</s></span><i></i><span>• lijst</span><span>1. lijst</span><span>link</span><span>tabel</span><i></i><span>A kleur</span><span>Broncode</span></div><div class="rte-area" contenteditable="true" data-ph="${ph}"></div><div class="hist"><span>Historie</span><span>Nog geen eerdere notities</span></div></div></div>`,
+ notes:()=>B.rte('Opmerkingen bon / productie','Komt op de bon voor productie…')+B.rte('Opmerkingen inpakken','Instructies voor inpakken…')+B.rte('Opmerkingen CS / BC / Admin','Interne notitie…'),
+ factuur:()=>`<address class="addr"><b>De Kleine Keizerin</b><br>T.a.v. Suzanne van der Zanden<br>Rotterdamseweg 51<br>2628 AJ Delft<br>Nederland</address>`,
+ bezorgSum:()=>`<div class="row" style="justify-content:space-between"><span><span class="lbl">Delivery address</span><br>De Kleine Keizerin · Suzanne van der Zanden · Rotterdamseweg 51 · 2628 AJ Delft</span><label class="chk"><input type="checkbox" id="${D('dv')}">Verwijderen</label></div>`,
+ bezorg:()=>`<div class="fgrid c4">
+   ${fld('Bedrijf',inp(D('bb'),'De Kleine Keizerin'),'','span2')}${fld('T.a.v. / Naam',inp(D('bn'),'Suzanne van der Zanden'),'','span2')}
+   ${fld('Telefoon',inp(D('bt'),''))}${fld('Straat',inp(D('bs'),'Rotterdamseweg'),'','span2')}${fld('Huisnummer',inp(D('bh'),'51'))}
+   ${fld('Postcode',inp(D('bp'),'2628 AJ'))}${fld('Woonplaats',inp(D('bw'),'Delft'))}${fld('Land',inp(D('bl'),'Nederland'),'','span2')}
+   ${fld('Colli',inp(D('bc'),'1'))}${fld('Gewicht (kg)',inp(D('bg'),'1,0'))}${fld('Afmetingen (cm)',inp(D('ba'),'32 x 50 x 10'),'','span2')}</div>`,
+ window:(pre,from,to,dl,dh)=>`<div class="fgrid c3">${fld(pre+' van',`<div class="row">${inp(D('w'),from)}<span class="quick">Nu</span></div>`)}${fld(pre+' tot',`<div class="row">${inp(D('w'),to)}<span class="quick">Nu</span></div>`)}${fld(dl,`<div class="row"><input class="inp" type="date" id="${D('w')}"><span class="quick">Vandaag</span></div>`,dh)}</div>`,
+ sentRef:()=>`<div class="fgrid c2">${fld('Verzonden',`<div class="row"><input class="inp" type="date" id="${D('s')}"><input class="inp" type="time" id="${D('s')}"></div>`)}${fld('Geweigerd',`<div class="row"><input class="inp" type="date" id="${D('s')}"><input class="inp" type="time" id="${D('s')}"></div>`)}</div>`,
+ focus:()=>`${B.window('Ophaaltijd','17:00:00','18:00:00','Ophaaldatum','Standaard vandaag als leeg')}${B.window('Aflevertijd','09:00:00','17:00:00','Afleverdatum','Standaard volgende werkdag als leeg')}
+   <div class="fgrid c2">${fld('Focus API order-ID','<span class="muted">—</span>','Order-ID uit de nieuwe API; wordt automatisch gevuld')}${fld('Uitbesteed-ID',inp(D('ui'),''))}</div>${B.sentRef()}`,
+ sendcloud:()=>`<div class="fgrid c2">${fld('Verzendmethode',`<div class="row">${sel(D('sc'),['PostNL Standard 0-23kg (1)','PostNL Brievenbuspakje','DHL For You'],'PostNL Standard 0-23kg (1)')}${mini()}</div>`)}${fld('Maak label',sel(D('ml'),['Ja','Nee'],'Ja'))}</div>${B.sentRef()}${fld('Sendcloud parcels','<span class="muted">Nog geen parcels</span>')}`,
+ fier:()=>`${B.window('Ophaaltijd','17:00:00','18:00:00','Ophaaldatum','Standaard vandaag als leeg')}${B.window('Aflevertijd','09:00:00','17:00:00','Afleverdatum','Standaard volgende werkdag als leeg')}${fld('Fier koeriers orders','<span class="muted">Geen</span>')}`,
+ addDel:()=>`<button class="btn btn-g btn-sm">${ic('plus',14)}Nog een delivery address toevoegen</button>`,
+ lines:()=>`<div class="tblwrap"><table class="t"><thead><tr><th>Product</th><th>Specificatie</th><th>Oplage</th><th>Datum deadline</th><th>Bestanden</th><th>Status</th><th>Verwijderen</th></tr></thead><tbody><tr>
+   <td style="min-width:170px"><div class="row">${sel(D('lp'),['Flyers','Posters','Visitekaartjes'],'Flyers')}${mini()}</div><span class="muted" style="font-size:11.5px">Orderregel-object 178499</span></td>
+   <td style="min-width:240px"><textarea class="inp" rows="6" id="${D('ls')}">Papiersoort: Mat
+Materiaal en gewicht: Houtvrij 250 g/m²
+Bedrukking: Dubbelzijdig
+Afwerking: Geen afwerking
+Formaat: A5 (14,8 x 21 cm)</textarea></td>
+   <td style="min-width:80px"><input class="inp num" value="50" id="${D('lo')}"></td>
+   <td style="min-width:150px"><input class="inp" type="date" value="2026-10-16" id="${D('ld')}"><span class="quick">Vandaag</span></td>
+   <td style="min-width:200px"><textarea class="inp" rows="3" id="${D('lf')}">50 x DEF flyer cultuurbarbaren.pdf</textarea></td>
+   <td style="min-width:130px"><div class="row">${sel(D('lst'),['---------','In productie','Gereed'],'---------')}</div></td>
+   <td><label class="chk"><input type="checkbox" id="${D('lx')}"><span class="muted">Wis</span></label></td></tr></tbody></table></div>
+   <button class="btn btn-g btn-sm">${ic('plus',14)}Nog een orderregel toevoegen</button>`,
+ taken:()=>`<div class="tblwrap"><table class="t"><thead><tr><th>Datum aangemaakt</th><th>Actie</th><th>User</th><th>E-mail template</th><th>Printer</th><th>Datum gestart</th><th>Datum uitgevoerd</th><th>Datum fout</th><th>Fout</th></tr></thead><tbody><tr><td colspan="9" class="emptyrow">Nog geen taken voor deze opdracht</td></tr></tbody></table></div>`,
+ berichten:()=>`<div class="tblwrap"><table class="t"><thead><tr><th>E-mail</th><th>Subject</th><th>User</th><th>Datum aangemaakt</th></tr></thead><tbody><tr><td colspan="4" class="emptyrow">Nog geen berichten verstuurd</td></tr></tbody></table></div>`
+};
+const prodTitle='50 × Flyers A5';
+const prodSpec=['Mat','Houtvrij 250 g/m²','Dubbelzijdig','Geen afwerking','A5 (14,8 × 21 cm)'];
+
+/* ---------------- Lijst-bouwstenen ---------------- */
+const FILTERS=[
+ ['Op website',['Alle','www.printerpro.nl']],
+ ['Op afdeling',['Alle','Grootformaat','Kleinformaat','Logistiek','Pre-press','Customer Support','Balie']],
+ ['Op opdrachtstatus',['Alle',...KEYS.map(k=>[`${k} ${ST[k]}`,STCOUNT[k]])]],
+ ['Op prioriteit',['Alle',...PRIOS]],
+ ['Op blanco verzenden',['Alle','Ja','Nee']],
+ ['Op verzending',['Alle',...VERZ]],
+ ['Op verzending door',['Alle',...DOOR]],
+ ['Op status nabetaling',['Alle','Nabetaling open','Nabetaling voldaan']],
+ ['Datum deadline','date'],
+ ['Op type',['Alle','Gekocht','Op rekening','Offerte']],
+ ['Op proefdrukstatus',['Alle','Proef verstuurd','Proef akkoord','Proef afgekeurd']],
+ ['Datum ontvangen','date']
+];
+const fval=o=>Array.isArray(o)?o[0]:o;
+const filterList=(openN=3)=>FILTERS.map(([n,opts],i)=>`<details${i<openN?' open':''}><summary>${n}${n==='Op afdeling'?'<small>Kleinformaat</small>':''}</summary>${opts==='date'?
+  `<div class="daterange"><input class="inp" type="date" aria-label="${n} vanaf"><input class="inp" type="date" aria-label="${n} tot"></div>`:
+  `<ul class="flist">${opts.map((o,j)=>`<li><a class="${(n==='Op afdeling'?j===2:j===0)?'on':''}">${fval(o)}${Array.isArray(o)?`<span>${o[1].toLocaleString('nl-NL')}</span>`:''}</a></li>`).join('')}</ul>`}</details>`).join('');
+const searchBar=(ph='Zoek op ID, naam, e-mail of referentie')=>`<div class="lsearch">${ic('search')}<input placeholder="${ph}" aria-label="Zoeken"><button class="btn btn-p btn-sm">Zoeken</button></div>`;
+const countTxt=`<span class="count"><b>50.475</b> resultaten (50.475 in totaal)</span>`;
+const bulkBar=()=>`<div class="bulk"><span class="lbl">Actie</span><select class="sel" aria-label="Actie"><option>---------</option><option>Geselecteerde opdrachten verwijderen</option></select><button class="btn btn-s btn-sm">Uitvoeren</button><span class="count"><b data-selc>${S.sel.size}</b> van 50 geselecteerd</span></div>`;
+const topBtns=()=>`<button class="btn btn-s btn-sm">${ic('dl',14)}Export van alle gefilterde items</button><button class="btn btn-p btn-sm">${ic('plus',14)}Opdracht toevoegen</button>`;
+const pager=()=>`<div class="pager"><button class="on">1</button><button>2</button><button>3</button><button>4</button><span class="muted">…</span><button>1009</button><button>1010</button><span class="count" style="margin-left:8px">50.475 opdrachten</span></div>`;
+const ck=r=>`<input type="checkbox" data-row="${r.id}" aria-label="Selecteer ${r.id}"${S.sel.has(r.id)?' checked':''} style="accent-color:var(--pink);width:16px;height:16px">`;
+const prioTag=r=>r.prio?`<span class="tag flag">${r.prio}</span>`:dash;
+const verzCell=r=>`<span class="row" style="gap:6px;flex-wrap:nowrap">${ic(verzIc(r.verz),15)}<span>${r.verz}</span></span>`;
+const contactCell=r=>`<div class="contact"><b>${r.c[0]}</b>${r.c[1]?`<span>${r.c[1]}</span>`:''}<span class="mono" style="font-size:11.5px">${r.c[2]}</span></div>`;
+const actCell=()=>`<div class="acts"><button title="Bon" aria-label="Bon">${ic('bon',15)}</button><button title="Pakbon" aria-label="Pakbon">${ic('box',15)}</button><button title="E-mail" aria-label="E-mail">${ic('mail',15)}</button></div>`;
+const open=id=>`data-open="${id}"`;
+
+/* ---------------- Shell ---------------- */
+function shell(inner,crumb){
+  return `<div class="stage"><div class="frame">
+  <div class="topbar"><div class="brand"><span class="logo">PP</span><span>ORDERS PRINTERPRO.NL<small>Ordermanagement</small></span></div>
+   <div class="gsearch">${ic('search')}<input placeholder="Zoek opdracht, factuur of klant…" aria-label="Zoek in orders"></div>
+   <div class="userlinks">Welkom, <b>Tim</b><a href="#">Website bekijken</a><a href="#">Wachtwoord wijzigen</a><a href="#">Afmelden</a></div></div>
+  <div class="body"><nav class="rail" aria-label="Hoofdmenu"><a href="#">${ic('home')}Voorpagina</a><a href="#">${ic('file')}Invoice</a><a class="on" data-go="list">${ic('list')}Opdrachten</a></nav>
+  <main style="min-width:0"><div class="crumbs"><a href="#">Voorpagina</a>›<a href="#">Invoice</a>›${crumb?`<a data-go="list" class="link" style="color:inherit">Opdrachten</a>›<b>Factuur: 320279</b>`:'<b>Opdrachten</b>'}</div>${inner}</main></div></div></div>`;
+}
+
+/* ================= SMAAK 1 · STUDIO ================= */
+function v1List(){
+  const qvs=[['Alle',null],['Deadline vandaag',r=>r.dd===0],['Klaar voor productie',r=>r.st==='04'],['In productie',r=>r.st==='05'],['Afhalen',r=>/Afhalen/.test(r.verz)],['Met prioriteit',r=>!!r.prio]];
+  const f=qvs.find(q=>q[0]===S.qv)[1];const rows=f?R.filter(f):R;
+  return shell(`<div class="l-wrap">
+   <aside class="card fpanel filters"><h3>Filter <a class="link" style="font-size:12px;font-family:var(--body)">Wis alles</a></h3>${filterList(3)}</aside>
+   <div class="l-main">
+    <div class="l-head"><div><h1>Opdrachten</h1><p>Selecteer een opdracht om te wijzigen</p></div><div class="row">${topBtns()}</div></div>
+    <div class="row" style="justify-content:space-between">${searchBar()}${countTxt}</div>
+    <div class="quickviews">${qvs.map(([n,fn])=>`<button class="qv${S.qv===n?' on':''}" data-qv="${n}">${n}<span>${fn?R.filter(fn).length:R.length}</span></button>`).join('')}</div>
+    <div class="card tcard"><div class="tbar">${bulkBar()}<span class="count">Sortering: deadline oplopend</span></div>
+     <div class="tblwrap"><table class="t"><thead><tr><th></th><th>ID</th><th>Afdelingen</th><th>Prioriteiten</th><th>Ontvangen</th><th>Deadline</th><th>Status</th><th>Verzending</th><th>Verz. door</th><th>Blanco</th><th>Type</th><th>Proefdruk</th><th>Contact</th><th>Gewijzigd</th><th>Acties</th><th>Betaling</th><th>Nabetaling</th></tr></thead>
+     <tbody>${rows.map(r=>`<tr class="${S.sel.has(r.id)?'picked':''}"><td>${ck(r)}</td><td class="id"><a ${open(r.id)}>${r.id}</a></td><td><span class="tag">${r.afd}</span></td><td style="max-width:170px">${prioTag(r)}</td><td class="num muted" style="white-space:nowrap">${r.ontv}</td><td style="white-space:nowrap">${dlCell(r)}</td><td>${pill(r.st)}</td><td style="white-space:nowrap">${verzCell(r)}</td><td>${r.door||dash}</td><td>${r.blanco?'<span class="tag blanco">Blanco</span>':dash}</td><td>${r.type}</td><td>${r.proef||dash}</td><td style="min-width:170px">${contactCell(r)}</td><td class="num" style="white-space:nowrap">${r.gew[0]}<br><span class="muted">${r.gew[1]}</span></td><td>${actCell()}</td><td>${r.bet}</td><td>${r.nab?`<span class="pill ph-prep">${r.nab}</span>`:dash}</td></tr>`).join('')}</tbody></table></div>
+     <div class="tfoot">${pager()}<span class="count">Toont ${rows.length} voorbeeldregels</span></div></div>
+   </div></div>`);
+}
+function v1Detail(){
+  const toc=[['s-opdracht','Opdracht'],['s-product','Orderregels','1'],['s-afd','Afdelingen & prioriteiten'],['s-klant','Klant & contact'],['s-notes','Notities','3'],['s-adres','Adressen'],['s-verz','Koeriers & Sendcloud'],['s-log','Taken & berichten']];
+  return shell(`${B.alert()}
+  <div class="d-title"><div><h1>Opdracht wijzigen</h1><p>Factuur <b class="mono">320279</b> · ontvangen 15 okt 2026 14:58 · www.printerpro.nl</p></div></div>
+  <div class="d-wrap">
+   <nav class="toc" aria-label="Secties"><span class="lbl">Op deze pagina</span>${toc.map((t,i)=>`<a href="#${t[0]}" class="${i===0?'on':''}">${t[1]}${t[2]?`<span>${t[2]}</span>`:''}</a>`).join('')}</nav>
+   <div class="d-main">
+    <section class="card sec" id="s-opdracht"><div class="sec-h"><h2>Opdracht</h2><p>Status, deadline en verzending</p></div>
+      ${B.status()}<div class="sub">Verzending & proef</div><div class="fgrid c3">${B.verz()}${B.proef()}</div><div class="sub">Gegevens</div>${B.meta()}</section>
+    <section class="card sec" id="s-product"><div class="sec-h"><h2>Orderregels</h2><p>Wat er geprint wordt</p></div>${B.lines()}</section>
+    <section class="card sec" id="s-afd"><div class="sec-h"><h2>Afdelingen & prioriteiten</h2><p>Gegroepeerd; geselecteerde prioriteiten zijn donker</p></div>
+      <div style="display:grid;grid-template-columns:minmax(0,240px) minmax(0,1fr);gap:28px" class="afdgrid"><div><span class="lbl">Afdelingen</span>${B.afd()}</div><div><span class="lbl" style="display:block;margin-bottom:8px">Prioriteiten</span>${B.prio()}</div></div></section>
+    <section class="card sec" id="s-klant"><div class="sec-h"><h2>Klant & contact</h2></div>${B.contact()}</section>
+    <section class="card sec" id="s-notes"><div class="sec-h"><h2>Notities</h2><p>Historie staat onder elk veld</p></div><div style="display:flex;flex-direction:column;gap:18px">${B.notes()}</div></section>
+    <section class="card sec" id="s-adres"><div class="sec-h"><h2>Adressen</h2></div>
+      <div style="display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:28px" class="afdgrid"><div><span class="lbl">Factuuradres</span><div style="margin-top:8px">${B.factuur()}</div></div>
+      <div><span class="lbl">Bezorgadres</span><div style="margin:8px 0 14px">${B.bezorgSum()}</div>${B.bezorg()}<div style="margin-top:10px">${B.addDel()}</div></div></div></section>
+    <section class="card sec" id="s-verz"><div class="sec-h"><h2>Koeriers & Sendcloud</h2><p>Alleen invullen bij bezorging</p></div>
+      <div class="sub" style="margin-top:0;padding-top:0;border:0">${ic('truck')} Focus koeriers</div>${B.focus()}
+      <div class="sub">${ic('box')} Sendcloud</div>${B.sendcloud()}
+      <div class="sub">${ic('bike')} Fier fietskoeriers</div>${B.fier()}</section>
+    <section class="card sec" id="s-log"><div class="sec-h"><h2>Taken & berichten</h2></div><span class="lbl">Taken</span>${B.taken()}<div class="sub">Berichten</div>${B.berichten()}</section>
+   </div>
+   <aside class="side">
+    <div class="card sum"><span class="id">#320279 · prosehy</span><h3>${prodTitle}</h3>${pill('04')}
+      <div class="count-dl" style="margin-top:14px"><span><span class="lbl">Deadline</span><br><b>Morgen 15:00</b></span><span class="muted" style="text-align:right">vr 16 okt 2026<br>nog ± 26 uur</span></div>
+      <dl><dt>Verzending</dt><dd>${ic('store',14)} Afhalen in Delft</dd><dt>Klant</dt><dd>Suzanne van der Zanden<br><span class="muted">De Kleine Keizerin</span></dd><dt>Referentie</dt><dd>flyers cultuurbarbaren</dd><dt>Afdeling</dt><dd>Klein formaat</dd><dt>Prioriteit</dt><dd data-psum2>${S.prio.size||'Geen'}</dd></dl></div>
+    <div class="card sum" style="padding:14px"><span class="lbl" style="display:block;margin-bottom:8px">Acties</span><div class="actgrid">${B.actions('btn btn-s btn-sm')}</div></div>
+    <div class="card savebox">${B.save(true)}</div>
+   </aside></div>`,true);
+}
+
+/* ================= SMAAK 2 · WERKBANK ================= */
+function v2Filters(){
+  return FILTERS.filter(f=>f[1]!=='date').map(([n,o])=>`<span class="fdrop"><select aria-label="${n}"${n==='Op afdeling'?' class="set"':''}>${o.map((x,j)=>`<option${n==='Op afdeling'&&j===2?' selected':''}>${j===0?n.replace('Op ','')+': alle':fval(x)}</option>`).join('')}</select></span>`).join('')+
+  `<span class="fdrop"><select aria-label="Datum deadline"><option>Deadline: alle data</option><option>Vandaag</option><option>Komende 7 dagen</option></select></span><span class="fdrop"><select aria-label="Datum ontvangen"><option>Ontvangen: alle data</option><option>Vandaag</option></select></span><a class="link" style="font-size:12px;margin-left:4px">Wis filters</a>`;
+}
+function v2List(){
+  const days=[...new Set(R.map(r=>r.dd))].sort((a,b)=>a-b);
+  return shell(`<div class="card">
+   <div class="l-top"><h1>Opdrachten</h1>${searchBar('ID, naam, e-mail, referentie…')}${countTxt}<span style="flex:1"></span>${topBtns()}</div>
+   <div class="fbar">${ic('filter',14)}${v2Filters()}</div>
+   <div class="l-top" style="padding-block:6px">${bulkBar()}${pager()}</div>
+   <div class="tblwrap"><table class="t"><thead><tr><th></th><th>ID</th><th>Deadline</th><th>Status</th><th>Afdeling / prioriteit</th><th>Verzending</th><th>Blanco</th><th>Contact</th><th>Type · proef</th><th>Ontvangen</th><th>Gewijzigd</th><th>Betaling</th><th>Acties</th></tr></thead><tbody>
+   ${days.map(d=>{const rs=R.filter(r=>r.dd===d);return `<tr class="grp${d===0?' today':''}"><td colspan="13">${dlRel(d)} · ${dlDate(d)}<small>${rs.length} opdrachten</small></td></tr>`+rs.map(r=>`<tr class="${S.sel.has(r.id)?'picked':''}"><td>${ck(r)}</td><td class="id"><a ${open(r.id)}>${r.id}</a></td><td class="num" style="white-space:nowrap"><b style="color:${d===0?'var(--red)':'inherit'}">${r.dt}</b></td><td>${pill(r.st)}</td><td><div class="cellstack"><span>${r.afd}</span>${r.prio?`<span class="tag flag" style="align-self:flex-start">${r.prio}</span>`:''}</div></td><td><div class="cellstack"><span class="row" style="gap:5px;flex-wrap:nowrap">${ic(verzIc(r.verz),14)}${r.verz}</span><small>${r.door||'—'}</small></div></td><td>${r.blanco?'<span class="tag blanco">Blanco</span>':dash}</td><td><div class="cellstack"><span>${r.c[0]}${r.c[1]?` · <span class="muted">${r.c[1]}</span>`:''}</span><small class="mono">${r.c[2]}</small></div></td><td><div class="cellstack"><span>${r.type}</span><small>${r.proef||'—'}</small></div></td><td class="num muted" style="white-space:nowrap">${r.ontv}</td><td class="num" style="white-space:nowrap">${r.gew[0]} <span class="muted">${r.gew[1]}</span></td><td><div class="cellstack"><span>${r.bet}</span>${r.nab?`<small style="color:var(--amber)">${r.nab}</small>`:''}</div></td><td>${actCell()}</td></tr>`).join('')}).join('')}
+   </tbody></table></div></div>`);
+}
+function v2Detail(){
+  return shell(`<div class="split">
+   <aside class="card queue"><div class="qh"><b>Wachtrij · Klein formaat</b>${searchBar('Zoek…').replace('lsearch','lsearch" style="min-width:0')}</div><ul>${R.map(r=>`<li><a class="${r.id===320279?'on':''}" ${open(r.id)}><span class="mono">${r.id}</span><span class="num" style="color:${r.dd===0?'var(--red)':r.dd===1?'var(--amber)':'var(--muted)'};font-weight:600">${dlRel(r.dd)} ${r.dt}</span><small>${r.c[0]} · ${ST[r.st]}</small></a></li>`).join('')}</ul></aside>
+   <div class="card" style="min-width:0">
+    <div class="dhead"><h1>Opdracht <span class="mono">320279</span></h1><div class="facts"><span><small>Status</small>${pill('04')}</span><span><small>Deadline</small><b style="color:var(--amber)">Morgen 15:00</b></span><span><small>Verzending</small>Afhalen in Delft</span><span><small>Klant</small>Suzanne v.d. Zanden</span></div><div class="save">${B.save(true)}</div></div>
+    <div style="padding:10px 14px 0">${B.alert()}</div>
+    <div class="abar">${B.actions('btn btn-g btn-sm')}</div>
+    <div class="cols">
+     <div><div class="blk"><h3>Opdracht <small>ID 320279 · versie 1792066710307482</small></h3>${B.status('c2').replace('fgrid c2','fgrid')}</div>
+      <div class="blk"><h3>Verzending & proef</h3><div class="fgrid">${B.verz()}${B.proef()}</div></div>
+      <div class="blk"><h3>Gegevens</h3>${B.meta().replace('fgrid c4','fgrid c2')}</div>
+      <div class="blk"><h3>Klant</h3>${B.contact()}</div></div>
+     <div><div class="blk"><h3>Orderregel <small>1 regel</small></h3>
+       <div class="fgrid c2">${fld('Product',`<div class="row">${sel(D('p'),['Flyers'],'Flyers')}${mini()}</div>`)}${fld('Oplage',inp(D('o'),'50'))}${fld('Specificatie',`<textarea class="inp" rows="5" id="${D('s')}">Papiersoort: Mat
+Materiaal en gewicht: Houtvrij 250 g/m²
+Bedrukking: Dubbelzijdig
+Afwerking: Geen afwerking
+Formaat: A5 (14,8 x 21 cm)</textarea>`,'','full')}${fld('Bestanden',`<textarea class="inp" rows="2" id="${D('b')}">50 x DEF flyer cultuurbarbaren.pdf</textarea>`,'','full')}${fld('Datum deadline',`<input class="inp" type="date" value="2026-10-16" id="${D('d')}">`)}${fld('Status',sel(D('x'),['---------'],'---------'))}</div>
+       <div class="row" style="justify-content:space-between;margin-top:8px"><span class="muted" style="font-size:11.5px">Orderregel-object 178499</span><label class="chk"><input type="checkbox">Verwijderen</label></div><button class="btn btn-g btn-sm">${ic('plus',14)}Nog een orderregel toevoegen</button></div>
+      <div class="blk"><h3>Notities</h3><div style="display:flex;flex-direction:column;gap:12px">${B.notes()}</div></div></div>
+     <div><div class="blk"><h3>Afdelingen</h3>${B.afd()}</div><div class="blk"><h3>Prioriteiten <small>klap groep open</small></h3>${B.prio('list')}</div></div>
+    </div>
+    <div class="wide"><div class="blk"><h3>Factuuradres</h3>${B.factuur()}</div><div class="blk" style="grid-column:span 3"><h3>Bezorgadres</h3>${B.bezorgSum()}<div style="margin-top:10px">${B.bezorg()}</div></div></div>
+    <div class="wide"><div class="blk" style="grid-column:span 2"><h3>Focus koeriers</h3>${B.focus()}</div><div class="blk"><h3>Sendcloud</h3>${B.sendcloud()}</div><div class="blk"><h3>Fier fietskoeriers</h3>${B.fier()}${B.addDel()}</div></div>
+    <div class="wide2"><div class="blk"><h3>Taken</h3>${B.taken()}</div><div class="blk"><h3>Berichten</h3>${B.berichten()}</div></div>
+   </div></div>`,true);
+}
+
+/* ================= SMAAK 3 · PRODUCTIEVLOER ================= */
+function v3List(){
+  const cols=[['Voorbereiding',['01','02','03','32']],['Klaar voor productie',['04']],['In productie',['05']],['Gereed',['06','07']],['Afgerond',['08','09']]];
+  return shell(`<div class="l-head"><h1>Opdrachten</h1><div class="row">${searchBar()}${topBtns()}</div></div>
+   <div class="row" style="justify-content:space-between;margin-bottom:12px"><div class="row"><span class="seg"><button class="on">Bord</button><button>Lijst</button></span>
+   <span class="fdrop">${sel('v3a',['Afdeling: Klein formaat','Afdeling: Grootformaat','Afdeling: alle'],'Afdeling: Klein formaat').replace('class="sel"','class="sel" style="width:auto;border-radius:999px;min-height:32px;padding-block:5px"')}</span>
+   <span>${sel('v3v',['Verzending: alle',...VERZ],'Verzending: alle').replace('class="sel"','class="sel" style="width:auto;border-radius:999px;min-height:32px;padding-block:5px"')}</span>
+   <a class="link" style="font-size:12px">Meer filters (10)</a></div>${countTxt}</div>
+   <div class="board">${cols.map(([n,codes])=>{const rs=R.filter(r=>codes.includes(r.st)).sort((a,b)=>a.dd-b.dd);return `<div class="col"><div class="col-h"><b>${n}</b><span>${codes.reduce((s,c)=>s+STCOUNT[c],0).toLocaleString('nl-NL')}</span></div>
+     ${rs.map(r=>`<button class="kc" ${open(r.id)}><div class="top"><span class="mono">${r.id}</span>${dlCell(r)}</div>
+      <div class="who">${r.c[0]}<small>${r.c[1]||'Particulier'} · ${r.c[2]}</small></div>
+      <div class="meta"><span class="tag">${r.afd}</span>${r.prio?`<span class="tag flag">${r.prio}</span>`:''}${r.blanco?'<span class="tag blanco">Blanco</span>':''}${r.proef?`<span class="tag">${r.proef}</span>`:''}${r.nab?`<span class="tag" style="background:var(--amber-bg);color:var(--amber)">${r.nab}</span>`:''}</div>
+      <div class="row" style="gap:6px;font-size:12.5px">${ic(verzIc(r.verz),15)}${r.verz}${r.door?` <span class="muted">· ${r.door}</span>`:''}</div>
+      <div class="st">${r.st} ${ST[r.st]} · ${r.type} · ${r.bet}</div>
+      <div class="foot"><span>In ${r.ontv}</span><span>Gewijzigd ${r.gew[0]} · ${r.gew[1]}</span></div></button>`).join('')||'<div class="emptyrow">Geen voorbeeldorders</div>'}</div>`}).join('')}</div>
+   <div class="row" style="justify-content:space-between;margin-top:12px">${bulkBar()}${pager()}</div>`);
+}
+function v3Detail(){
+  const tabs=[['productie','Productie','3'],['klant','Klant',''],['verzending','Verzending & adres',''],['admin','Administratie','']];
+  const pane={
+   productie:`<div class="box full"><h3>Orderregels</h3>${B.lines()}</div><div class="box"><h3>Afdelingen</h3>${B.afd()}<h3 style="margin-top:8px">Proef & enveloppen</h3><div class="fgrid c2">${B.proef()}</div></div><div class="box"><h3>Notities voor productie</h3>${B.rte('Opmerkingen bon / productie','Komt op de bon voor productie…')}</div><div class="box full"><h3>Prioriteiten</h3>${B.prio()}</div>`,
+   klant:`<div class="box">${'<h3>Contact</h3>'+B.contact()}</div><div class="box"><h3>Factuuradres</h3>${B.factuur()}</div>`,
+   verzending:`<div class="box"><h3>Verzending</h3><div class="fgrid">${B.verz()}</div></div><div class="box"><h3>Bezorgadres</h3>${B.bezorgSum()}</div><div class="box full">${B.bezorg()}${B.addDel()}</div><div class="box"><h3>Focus koeriers</h3>${B.focus()}</div><div class="box"><h3>Sendcloud</h3>${B.sendcloud()}<h3 style="margin-top:10px">Fier fietskoeriers</h3>${B.fier()}</div><div class="box full">${B.rte('Opmerkingen inpakken','Instructies voor inpakken…')}</div>`,
+   admin:`<div class="box full"><h3>Gegevens</h3>${B.meta()}</div><div class="box full">${B.status()}</div><div class="box full">${B.rte('Opmerkingen CS / BC / Admin','Interne notitie…')}</div><div class="box full"><h3>Taken</h3>${B.taken()}</div><div class="box full"><h3>Berichten</h3>${B.berichten()}</div>`
+  };
+  const cur=stage('04');
+  return shell(`${B.alert()}<div style="height:12px"></div><div class="card ticket">
+   <div class="t-hero"><div class="a"><span class="eyebrow">Werkbon · factuur 320279 · prosehy</span><h1>${prodTitle}</h1><div class="spec">${prodSpec.map(s=>`<span>${s}</span>`).join('')}</div><div class="row" style="margin-top:4px">${pill('04')}<span class="tag">Productie | Klein formaat</span><span class="tag">${ic('file',13)} 50 x DEF flyer cultuurbarbaren.pdf</span></div></div>
+    <div class="b"><div><div class="k">Deadline</div><div class="v big">Morgen 15:00</div><span class="muted">vr 16 oktober 2026</span></div><div><div class="k">Verzending</div><div class="v">Afhalen in Delft</div><span class="muted">Door: —</span></div><div><div class="k">Klant</div><div class="v">Suzanne van der Zanden</div><span class="muted">De Kleine Keizerin</span></div><div><div class="k">Referentie</div><div class="v">flyers cultuurbarbaren</div></div></div></div>
+   <div class="flow">${STAGES.map((s,i)=>`<span class="${i<cur?'done':i===cur?'now':''}">${s}</span>`).join('')}</div>
+   <div class="t-tools"><div class="row">${B.actions('btn btn-g btn-sm')}</div><div class="row" style="min-width:260px;flex:0 1 380px">${sel('v3st',STOPTS,'04 Klaar voor productie','data-st')}</div></div>
+   <div class="tabs" role="tablist">${tabs.map(([k,n,c])=>`<button role="tab" class="${S.tab===k?'on':''}" data-tab="${k}">${n}${c?`<em>${c}</em>`:''}</button>`).join('')}</div>
+   <div class="tabpane">${pane[S.tab]}</div>
+   <div class="t-save">${B.save()}</div></div>`,true);
+}
+
+/* ================= SMAAK 4 · NACHTDIENST ================= */
+function v4List(){
+  const k=[['Deadline vandaag',R.filter(r=>r.dd===0).length,'in deze selectie',r=>r.dd===0],['Klaar voor productie',STCOUNT['04'],'04',r=>r.st==='04'],['In productie',STCOUNT['05'],'05',r=>r.st==='05'],['Klaar om af te halen',STCOUNT['07'],'07',r=>r.st==='07'],['Wacht op klant',STCOUNT['32']+STCOUNT['03'],'03 + 32',r=>['03','32'].includes(r.st)]];
+  const f=S.kpi!=null?k[S.kpi][3]:null;const rows=(f?R.filter(f):R).slice().sort((a,b)=>a.dd-b.dd||a.dt.localeCompare(b.dt));
+  return shell(`<div class="kpis">${k.map((x,i)=>`<button class="kpi${S.kpi===i?' on':''}" data-kpi="${i}"><small>${x[0]}</small><b>${x[1]}</b><i>${x[2]}</i></button>`).join('')}</div>
+   <div class="cmd">${ic('search')}<input placeholder="Zoek op ID, naam, e-mail of referentie" aria-label="Zoeken"><span class="tok"><b>afdeling</b> Kleinformaat ${ic('x',12)}</span><span class="tok"><b>website</b> printerpro.nl</span><button class="btn btn-s btn-sm">${ic('filter',14)}Filters (12)</button><button class="btn btn-p btn-sm">Zoeken</button></div>
+   <div class="row" style="justify-content:space-between;margin-bottom:10px">${bulkBar()}<div class="row">${countTxt}${topBtns()}</div></div>
+   <div class="tblwrap"><div class="rows">
+    <div class="r rh"><span></span><span>ID</span><span>Status & voortgang</span><span>Deadline</span><span>Contact</span><span>Afdeling · verzending</span><span>Type · betaling</span><span>Acties</span></div>
+    ${rows.map(r=>{const s=stage(r.st);return `<div class="r${S.sel.has(r.id)?' picked':''}"><span>${ck(r)}</span><span><span class="mono" ${open(r.id)}>${r.id}</span><span class="s">${r.ontv}</span></span>
+     <span>${pill(r.st)}<span class="steps">${STAGES.map((_,i)=>`<i class="${i<s?'f':i===s?'c':''}"></i>`).join('')}</span></span>
+     <span>${dlCell(r)}</span>
+     <span><b>${r.c[0]}</b><span class="s">${r.c[1]||'Particulier'} · <span class="mono">${r.c[2]}</span></span></span>
+     <span>${r.afd}${r.prio?` <span class="tag flag">${r.prio}</span>`:''}<span class="s">${r.verz}${r.door?' · '+r.door:''}${r.blanco?' · <b style="color:var(--ink)">Blanco</b>':''}</span></span>
+     <span>${r.type}<span class="s">${r.bet}${r.proef?' · '+r.proef:''}${r.nab?' · <span style="color:var(--amber)">'+r.nab+'</span>':''}</span></span>
+     <span>${actCell()}<span class="s">${r.gew[0]} · ${r.gew[1]}</span></span></div>`}).join('')}
+   </div></div><div style="margin-top:12px">${pager()}</div>`);
+}
+function v4Detail(){
+  const cur=S.st;const keys=KEYS;const ci=keys.indexOf(cur);
+  const acc=(id,title,peek,body,openD)=>`<details ${openD?'open':''}><summary><h2>${title}</h2><span class="peek">${peek}</span></summary><div class="in">${body}</div></details>`;
+  return shell(`${B.alert()}
+   <div class="dtop"><h1>Opdracht <span class="mono">320279</span> <span>· ${prodTitle}</span></h1><div class="row">${B.save()}</div></div>
+   <div class="tri">
+    <aside class="card vstep"><span class="lbl">Status</span><ol>${keys.map((k,i)=>`<li class="${k===cur?'cur':i<ci&&k!=='32'?'past':''}"><button data-setst="${k}"><span><code>${k}</code> ${ST[k]}</span></button></li>`).join('')}</ol><a class="link" style="font-size:12px;display:block;margin:10px 8px 0">Toon alle statussen</a></aside>
+    <div class="acc">
+     ${acc('a1','Opdracht','Deadline vr 16 okt 15:00 · Afhalen in Delft',B.status()+`<div class="fgrid c3">${B.verz()}${B.proef()}</div>`+B.meta(),true)}
+     ${acc('a2','Orderregels',prodTitle+' · Mat · Houtvrij 250 g/m² · Dubbelzijdig',B.lines(),true)}
+     ${acc('a3','Afdelingen & prioriteiten','Productie | Klein formaat · '+(S.prio.size?S.prio.size+' prioriteiten':'geen prioriteit'),`<div><span class="lbl">Afdelingen</span>${B.afd()}</div><div><span class="lbl" style="display:block;margin-bottom:8px">Prioriteiten</span>${B.prio()}</div>`,true)}
+     ${acc('a4','Klant & contact','suzanne · suzanne@dekleinekeizerin.nl · 0644089603',B.contact())}
+     ${acc('a5','Notities','Bon/productie, inpakken, CS — leeg',B.notes())}
+     ${acc('a6','Adressen','Rotterdamseweg 51, 2628 AJ Delft · 1 colli · 1,0 kg',`<div><span class="lbl">Factuuradres</span><div style="margin-top:6px">${B.factuur()}</div></div>${B.bezorgSum()}${B.bezorg()}${B.addDel()}`)}
+     ${acc('a7','Focus koeriers','Ophalen 17:00–18:00 · afleveren 09:00–17:00',B.focus())}
+     ${acc('a8','Sendcloud','PostNL Standard 0-23kg (1) · label: ja',B.sendcloud())}
+     ${acc('a9','Fier fietskoeriers','Ophalen 17:00–18:00 · afleveren 09:00–17:00',B.fier())}
+     ${acc('a10','Taken & berichten','0 taken · 0 berichten',B.taken()+B.berichten())}
+    </div>
+    <aside class="ctx"><div class="card"><h3>Deadline</h3><div class="clock">26:00 u</div><span class="muted">tot vr 16 okt 2026, 15:00</span></div>
+     <div class="card"><h3>Klant</h3><b>Suzanne van der Zanden</b><br><span class="muted">De Kleine Keizerin</span><br><span class="mono" style="font-size:12px">0644089603</span><br><span style="font-size:12px">suzanne@dekleinekeizerin.nl</span><div style="margin-top:10px" class="muted">Ref. flyers cultuurbarbaren</div></div>
+     <div class="card"><h3>Afhalen in Delft</h3><address class="addr muted">Rotterdamseweg 51<br>2628 AJ Delft · Nederland</address></div>
+     <div class="card"><h3>Acties</h3><div class="acts2">${B.actions('btn btn-s btn-sm')}</div></div></aside>
+   </div>`,true);
+}
+
+/* ================= SMAAK 5 · RUST ================= */
+function v5ListBody(){
+  const afds=[['Alle',null],['Klein formaat',r=>r.afd==='Klein formaat'],['Grootformaat',r=>/Grootformaat/.test(r.afd)],['Scanner & supplies',r=>/Scanner/.test(r.afd)],['Afhalen',r=>/Afhalen/.test(r.verz)],['Verzenden',r=>!/Afhalen/.test(r.verz)]];
+  const f=afds.find(a=>a[0]===S.afdTab)[1];const rows=(f?R.filter(f):R).slice().sort((a,b)=>a.dd-b.dd||a.dt.localeCompare(b.dt));
+  return `<div class="l-head"><div><h1>Opdrachten</h1><p>${rows.length} voorbeeldopdrachten · gesorteerd op deadline</p></div><div class="row">${topBtns()}</div></div>
+   <div class="afdtabs">${afds.map(([n,fn])=>`<button class="${S.afdTab===n?'on':''}" data-afdtab="${n}"><b>${fn?R.filter(fn).length:R.length}</b><span>${n}</span></button>`).join('')}</div>
+   <div class="row" style="margin-bottom:12px">${searchBar()}${countTxt}</div>
+   <details class="morefilters"><summary>${ic('filter',14)}Alle filters</summary><div class="card fgrid5 filters">${FILTERS.map(([n,o])=>`<div><h4>${n}</h4>${o==='date'?`<div class="daterange"><input class="inp" type="date" aria-label="${n} vanaf"><input class="inp" type="date" aria-label="${n} tot"></div>`:sel('f5'+n.replace(/\W/g,''),o.map(fval),'Alle')}</div>`).join('')}</div></details>
+   <div class="row" style="justify-content:space-between;margin-bottom:10px">${bulkBar()}</div>
+   <div class="ocards">${rows.map(r=>`<div class="oc${S.screen==='detail'&&r.id===320279?' cur':''}" ${open(r.id)}><span>${ck(r)}</span>
+     <div><span class="idbig">${r.id}</span><div class="x">${r.ontv}</div><div style="margin-top:6px">${dlCell(r)}</div></div>
+     <div><b>${r.c[0]}</b><div class="x">${r.c[1]||'Particulier'} · <span class="mono">${r.c[2]}</span></div><div class="tags"><span class="tag">${r.afd}</span>${r.prio?`<span class="tag flag">${r.prio}</span>`:''}${r.blanco?'<span class="tag blanco">Blanco</span>':''}</div></div>
+     <div>${pill(r.st)}<div class="x" style="margin-top:6px">${r.type}${r.proef?' · '+r.proef:''}</div></div>
+     <div class="hidem"><span class="k">Verzending</span><span class="row" style="gap:6px">${ic(verzIc(r.verz),15)}${r.verz}</span><div class="x">${r.door||'—'}</div></div>
+     <div class="hidem"><span class="k">Betaling</span>${r.bet}${r.nab?`<div class="x" style="color:var(--amber)">${r.nab}</div>`:''}<div class="x">${r.gew[0]} · ${r.gew[1]}</div></div></div>`).join('')}</div>
+   <div style="margin-top:14px">${pager()}</div>`;
+}
+function v5List(){return shell(v5ListBody())}
+function v5Detail(){
+  const ds=(title,peek,body,o)=>`<details class="dsec"${o?' open':''}><summary><h3>${title}</h3><span class="peek">${peek}</span><span class="plus">+</span></summary><div class="in">${body}</div></details>`;
+  return shell(v5ListBody())+`<div class="scrim" data-go="list"></div><aside class="drawer" role="dialog" aria-label="Opdracht 320279">
+   <div class="dr-h"><div class="r1"><h2>Opdracht 320279<small>Factuur 320279 · prosehy · ${prodTitle} · ontvangen 15 okt 14:58</small></h2><button class="btn btn-s btn-sm" data-go="list" aria-label="Sluiten">${ic('x',14)}Sluiten</button></div>
+    ${B.alert()}<div class="row">${B.actions('btn btn-s btn-sm')}</div></div>
+   <div class="dr-b">
+    <div class="must">${fld('Status',sel('v5st',STOPTS,'04 Klaar voor productie','data-st'),'<a class="link">Toon alle statussen</a>')}
+     ${fld('Datum deadline',`<div class="row"><input class="inp" type="date" value="2026-10-16" id="v5dd"><input class="inp" type="time" value="15:00" id="v5dt"></div>`,'Morgen · nog ± 26 uur')}
+     ${fld('Verzending',sel('v5vz',VERZ,'Afhalen in Delft'),'Door: — · niet blanco')}</div>
+    ${ds('Product','50 × Flyers · Mat · Houtvrij 250 g/m² · Dubbelzijdig · A5',B.lines(),true)}
+    ${ds('Afdelingen','Productie | Klein formaat',B.afd())}
+    ${ds('Prioriteiten',S.prio.size?S.prio.size+' geselecteerd':'Geen prioriteit',B.prio())}
+    ${ds('Klant','suzanne · flyers cultuurbarbaren · 0644089603',B.contact())}
+    ${ds('Notities','Geen notities',B.notes())}
+    ${ds('Opdracht & proef','Website www.printerpro.nl · nabetaling — · proef —',`${B.meta()}<div class="fgrid c3">${fld('Status nabetaling',sel('v5nab',['---------','Nabetaling open','Nabetaling voldaan'],'---------'))}${fld('Verzending door',sel('v5vd',['---------',...DOOR],'---------'))}${fld('Blanco verzenden','<label class="chk"><input type="checkbox">Blanco verzenden</label>')}</div><div class="fgrid c2">${B.proef()}</div>`)}
+    ${ds('Adressen','Rotterdamseweg 51, 2628 AJ Delft',`<div><span class="lbl">Factuuradres</span><div style="margin-top:6px">${B.factuur()}</div></div>${B.bezorgSum()}${B.bezorg()}${B.addDel()}`)}
+    ${ds('Koeriers & Sendcloud','Focus · Sendcloud PostNL Standard · Fier',`<h4>Focus koeriers</h4>${B.focus()}<h4>Sendcloud</h4>${B.sendcloud()}<h4>Fier fietskoeriers</h4>${B.fier()}`)}
+    ${ds('Taken & berichten','0 taken · 0 berichten',B.taken()+B.berichten())}
+   </div>
+   <div class="dr-f">${B.save()}</div></aside>`;
+}
+
+/* ---------------- Render & interactie ---------------- */
+const VIEWS={1:[v1List,v1Detail],2:[v2List,v2Detail],3:[v3List,v3Detail],4:[v4List,v4Detail],5:[v5List,v5Detail]};
+const app=document.getElementById('app');
+function render(keepScroll){
+  const y=window.scrollY;
+  document.getElementById('flavors').innerHTML=FLAVORS.map((f,i)=>`<button aria-pressed="${S.v===i+1}" data-v="${i+1}"><b>${i+1}</b>${f.n}</button>`).join('');
+  document.querySelectorAll('[data-screen]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.screen===S.screen));
+  const F=FLAVORS[S.v-1];
+  document.getElementById('pitch').innerHTML=`<div><h2>${S.v} · ${F.n}</h2><p>${F.t} ${F.d}</p></div><ul>${F.p.map(([a,b])=>`<li><b>${a}</b>${b}</li>`).join('')}</ul>`;
+  app.className='v'+S.v;
+  app.innerHTML=VIEWS[S.v][S.screen==='list'?0:1]();
+  if(!keepScroll)window.scrollTo(0,0);else window.scrollTo(0,y);
+  save();
+}
+function syncPrio(){
+  const n=S.prio.size;
+  app.querySelectorAll('[data-psum]').forEach(e=>e.innerHTML=n?`<b>${n}</b> geselecteerd`:'Geen prioriteit geselecteerd');
+  app.querySelectorAll('[data-psum2]').forEach(e=>e.textContent=n||'Geen');
+  app.querySelectorAll('.pgroup').forEach(g=>{const c=g.querySelectorAll('.chip[aria-pressed=true]').length;const h=g.querySelector('h4');const em=h.querySelector('em');if(c){if(em)em.textContent=c;else h.insertAdjacentHTML('beforeend',`<em>${c}</em>`)}else if(em)em.remove()});
+}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-v],[data-screen],[data-open],[data-go],[data-chip],[data-qv],[data-tab],[data-kpi],[data-afdtab],[data-setst],a[href="#"],.pager button');
+  if(!t)return;
+  if(t.matches('a[href="#"]')){e.preventDefault();return}
+  if(t.dataset.screen){S.screen=t.dataset.screen;render()}
+  else if(t.dataset.open){if(e.target.closest('input,button:not([data-open]),.acts'))return;S.screen='detail';render()}
+  else if(t.dataset.go){S.screen=t.dataset.go;render(S.v===5)}
+  else if(t.dataset.chip){const p=t.dataset.chip;S.prio.has(p)?S.prio.delete(p):S.prio.add(p);t.setAttribute('aria-pressed',S.prio.has(p));syncPrio()}
+  else if(t.dataset.qv){S.qv=t.dataset.qv;render(true)}
+  else if(t.dataset.tab){S.tab=t.dataset.tab;render(true)}
+  else if(t.dataset.kpi){const k=+t.dataset.kpi;S.kpi=S.kpi===k?null:k;render(true)}
+  else if(t.dataset.afdtab){S.afdTab=t.dataset.afdtab;render(true)}
+  else if(t.dataset.setst){S.st=t.dataset.setst;render(true)}
+  else if(t.matches('.pager button')){t.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===t))}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.row){const id=+t.dataset.row;t.checked?S.sel.add(id):S.sel.delete(id);const tr=t.closest('tr,.r');if(tr)tr.classList.toggle('picked',t.checked);app.querySelectorAll('[data-selc]').forEach(x=>x.textContent=S.sel.size)}
+  else if(t.dataset.prio){t.checked?S.prio.add(t.dataset.prio):S.prio.delete(t.dataset.prio);syncPrio()}
+  else if(t.dataset.afd){t.checked?S.afd.add(t.dataset.afd):S.afd.delete(t.dataset.afd)}
+  else if(t.hasAttribute('data-st')){S.st=t.value.slice(0,2);if(S.v===4)render(true)}
+});
+document.addEventListener('input',e=>{
+  if(e.target.hasAttribute('data-pq')){const q=e.target.value.toLowerCase();const box=e.target.closest('.pfilter').nextElementSibling;
+    box.querySelectorAll('.chip').forEach(c=>c.classList.toggle('hide',!!q&&!c.dataset.chip.toLowerCase().includes(q)));
+    box.querySelectorAll('.pgroup').forEach(g=>g.hidden=!g.querySelector('.chip:not(.hide)'))}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.v===5&&S.screen==='detail'){S.screen='list';render(true)}});
+render();
+</script>
+
+</body></html>
