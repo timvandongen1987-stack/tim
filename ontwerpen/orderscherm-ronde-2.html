@@ -478,6 +478,64 @@ table.t td.id a{font-family:var(--mono);font-weight:600;color:var(--pink-d);text
 .switch input::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--white);transition:left .15s}
 .switch input:checked{background:var(--pink)}
 .switch input:checked::after{left:16px}
+
+/* =========================================================
+   KLEURDIEET · kleur alleen waar het iets uitlegt
+   rood  = deadline vandaag, urgente prioriteit, verwijderen
+   geel/oranje = waarschuwing (klacht-herprint, wacht op klant, "let op")
+   roze  = de ene hoofdactie per scherm (Opslaan / Opdracht toevoegen)
+   alles anders = inkt, grijs en wit
+   ========================================================= */
+.pill{background:var(--paper)!important;color:var(--ink)!important;border:1px solid var(--line);font-weight:500}
+.pill::before{background:var(--ink)}
+.ph-closed{color:var(--muted)!important}
+.ph-closed::before{background:var(--line)}
+.ph-hold::before{background:var(--amber)}
+.ph-hold{border-color:#f0d08a}
+.ph-dot.prep,.ph-dot.ready,.ph-dot.prod,.ph-dot.done{background:var(--ink)}
+.ph-dot.closed{background:var(--line)}
+.ph-dot.hold{background:var(--amber)}
+.dl.d1 b{color:var(--ink)}
+.fact.u1{background:var(--paper);color:var(--ink);border-color:var(--line)}
+.w4 .dh .fact.u1{background:#3a3536;color:#fff;border-color:#3a3536}
+.tag.flag{background:var(--white);border:1px solid var(--line);color:var(--ink);font-weight:500}
+.tag.flag.alarm{color:var(--red);border-color:color-mix(in srgb,var(--red) 35%,transparent);font-weight:600}
+.chip.alarm{border-color:var(--line)}
+.chip.alarm code{color:var(--red)}
+.pgroup h4 em{background:var(--ink)}
+.link{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.link:hover{text-decoration-color:var(--ink)}
+.quick{color:var(--muted);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.quick:hover{color:var(--ink)}
+.lsearch .btn-p{background:var(--ink)}
+.lsearch .btn-p:hover{background:#000}
+table.t td.id a{color:var(--ink)}
+table.t tr.picked td{background:var(--sel)}
+.tabsnav a.on{border-color:var(--ink)}
+.w1 .phasetabs button.on{border-color:var(--ink)}
+.w1 .index a.on .dot.ok{background:var(--ink)}
+.w2 .irow.on{background:var(--sel);box-shadow:inset 3px 0 0 var(--ink)}
+.w2 .irow.picked{background:var(--sel)}
+.w2 .folders a.on span{color:var(--ink)}
+.w5 .spy a.on .dot.ok{background:var(--white)}
+.w5 .fc.u1 .urg b{color:var(--ink)}
+.switch input:checked{background:var(--ink)}
+.v1 .qv.on,.w5 .segs button.on{background:var(--ink)}
+/* presentatieband */
+.flavors button[aria-pressed=true]{background:#fff;color:var(--ink)}
+.flavors button[aria-pressed=true] b{color:var(--muted)}
+.pitch li::before{background:#6e686a}
+.colorrule{max-width:1600px;margin:0 auto;padding-bottom:12px;display:flex;gap:6px 16px;flex-wrap:wrap;font-size:12px;color:#cfc9cb}
+.colorrule b{color:#fff;font-weight:600}
+.colorrule span{display:inline-flex;gap:6px;align-items:center}
+.colorrule i{width:9px;height:9px;border-radius:50%;display:inline-block}
+
+.filters summary small{color:var(--ink)}
+.pill{padding-left:10px}
+.pill::before{display:none}
+.pill.ph-hold{padding-left:8px}
+.pill.ph-hold::before{display:block}
+.phasetabs .ph-dot:not(.hold),.folders .ph-dot:not(.hold),.grp>summary .ph-dot:not(.hold),.irow .ph-dot:not(.hold){display:none}
 </style>
 
 <div class="picker">
@@ -490,6 +548,7 @@ table.t td.id a{font-family:var(--mono);font-weight:600;color:var(--pink-d);text
     </div>
   </div>
   <div class="pitch" id="pitch"></div>
+<div class="colorrule"><b>Kleurregel</b><span><i style="background:#ff8a80"></i>rood = deadline vandaag, urgente prioriteit, verwijderen</span><span><i style="background:#f2c94c"></i>geel = waarschuwing / let op</span><span><i style="background:#fc0075"></i>roze = de hoofdactie (Opslaan)</span><span>de rest is zwart, grijs en wit</span></div>
 </div>
 <div id="app"></div>
 
@@ -716,11 +775,11 @@ const FLAVORS=[
  {n:'Index',t:'Weet altijd waar je bent.',d:'Een vaste inhoudsopgave links met een stip per sectie: ingevuld, leeg, let op of niet van toepassing. Klik en de sectie klapt open.',
   p:[['Fasetabs in het overzicht','Voorbereiding, klaar, productie, gereed, afgerond: één klik en je ziet alleen die fase.'],['Kop blijft staan','Terug, vorige/volgende, status, deadline en Opslaan staan altijd bovenin.'],['Secties met samenvatting','Ingeklapt zie je al de waarde; open alleen wat je moet wijzigen.']]},
  {n:'Inbox',t:'Werkt als je mailprogramma.',d:'Mappen per status en afdeling links, de lijst in het midden, de opdracht rechts. Je verlaat de lijst nooit.',
-  p:[['Statussen als mappen','Met aantallen, ingedeeld per fase en in dezelfde kleur als het label.'],['Drie panelen','Lijst en opdracht naast elkaar; op een smal scherm vallen de mappen weg.'],['Accordeon zonder kaders','Ingeklapte secties zijn een strakke lijst; open secties worden een kaart.']]},
+  p:[['Statussen als mappen','Met aantallen per fase; alleen de geselecteerde map valt op.'],['Drie panelen','Lijst en opdracht naast elkaar; op een smal scherm vallen de mappen weg.'],['Accordeon zonder kaders','Ingeklapte secties zijn een strakke lijst; open secties worden een kaart.']]},
  {n:'Tegels',t:'De opdracht in één oogopslag.',d:'De order begint als tegels met de belangrijkste waarden. Klik een tegel en hij klapt over de volle breedte open.',
   p:[['Overzicht eerst','Tien tegels tonen samen de hele order zonder te scrollen.'],['Inklapbare groepen in de lijst','Het overzicht is gegroepeerd per fase; klap in wat je nu niet nodig hebt.'],['Let op valt op','Een tegel met een aandachtspunt krijgt een oranje rand.']]},
- {n:'Strak',t:'Zwart-wit, kleur alleen als signaal.',d:'Kleine radius, harde lijnen, donkere kopbalk. Kleur verschijnt alleen voor urgentie en fase, en roze alleen voor Opslaan.',
-  p:[['Signaalstreep per rij','Een gekleurde streep links toont de fase; de deadlinekolom staat vooraan.'],['Twee kolommen','Productie links, klant & levering rechts, elk met eigen alles open/dicht.'],['Filters als één rij','Alle filtergroepen als compacte keuzelijsten boven de tabel.']]},
+ {n:'Strak',t:'Zwart-wit, kleur alleen als signaal.',d:'Kleine radius, harde lijnen, donkere kopbalk. Kleur verschijnt alleen bij deadline vandaag, en roze alleen voor Opslaan.',
+  p:[['Signaalstreep alleen bij haast','Een rode streep links alleen bij deadline vandaag; de deadlinekolom staat vooraan.'],['Twee kolommen','Productie links, klant & levering rechts, elk met eigen alles open/dicht.'],['Filters als één rij','Alle filtergroepen als compacte keuzelijsten boven de tabel.']]},
  {n:'Focus',t:'Eén ding tegelijk, groot en duidelijk.',d:'Gecentreerde kolom, grote zoekbalk, sectiebalk die meeloopt. Zet "Eén sectie tegelijk" aan en de order wordt een stappenlijst.',
   p:[['Meelopende sectiebalk','Bovenin zie je waar je bent en spring je naar elke sectie.'],['Eén sectie tegelijk','Optioneel: opent er één, dan klappen de andere dicht.'],['Opslaan altijd binnen bereik','Vaste balk onderaan, ook op een tablet.']]}
 ];
@@ -778,11 +837,11 @@ function shell2(inner,detail,{pre='',wide=false}={}){
    ${detail?'':`<div class="crumbs"><a href="#">Voorpagina</a>›<a href="#">Invoice</a>›<b>Opdrachten</b></div>`}${inner}</div></div>`;
 }
 const rowCells=r=>`<td class="id"><a ${open(r.id)}>${r.id}</a></td><td style="white-space:nowrap">${dlCell(r)}</td><td>${pill(r.st)}</td>
- <td><span class="tag">${r.afd}</span>${r.prio?`<br><span class="tag flag" style="margin-top:4px">${r.prio}</span>`:''}</td>
+ <td><span class="tag">${r.afd}</span>${r.prio?`<br><span class="tag flag${ALARM.test(r.prio)?' alarm':''}" style="margin-top:4px">${r.prio}</span>`:''}</td>
  <td style="white-space:nowrap">${verzCell(r)}<span class="muted" style="font-size:12px">${r.door||''}${r.blanco?(r.door?' · ':'')+'<b style="color:var(--ink)">Blanco</b>':''}</span></td>
  <td style="min-width:160px">${contactCell(r)}</td><td>${r.type}<br><span class="muted" style="font-size:12px">${r.proef||'Geen proef'}</span></td>
  <td class="num muted" style="white-space:nowrap">${r.ontv}</td><td class="num" style="white-space:nowrap">${r.gew[0]}<br><span class="muted">${r.gew[1]}</span></td>
- <td>${r.bet}${r.nab?`<br><span style="color:var(--amber);font-size:12px;font-weight:600">${r.nab}</span>`:''}</td><td>${actCell()}</td>`;
+ <td>${r.bet}${r.nab?`<br><span style="font-size:12px;font-weight:600">${r.nab}</span>`:''}</td><td>${actCell()}</td>`;
 const TH=`<th></th><th>ID</th><th>Deadline</th><th>Status</th><th>Afdeling · prioriteit</th><th>Verzending</th><th>Contact</th><th>Type · proef</th><th>Ontvangen</th><th>Gewijzigd</th><th>Betaling</th><th>Acties</th>`;
 const sorted=rs=>rs.slice().sort((a,b)=>a.dd-b.dd||a.dt.localeCompare(b.dt));
 
@@ -793,7 +852,7 @@ function r1List(){
    <div class="phasetabs" role="tablist"><button class="${S.phase==='Alle'?'on':''}" data-phase="Alle">Alle <b>50.475</b></button>${PHASES.map(([k,n,c])=>`<button class="${S.phase===n?'on':''}" data-phase="${n}"><i class="ph-dot ${k}"></i>${n} <b>${phCount(c).toLocaleString('nl-NL')}</b></button>`).join('')}</div>
    <div class="toolbar"><button class="btn btn-s btn-sm" data-ftoggle>${ic('filter',14)}${S.fopen?'Filters verbergen':'Filters tonen'}</button>${searchBar()}${countTxt}</div>
    <div class="lgrid ${S.fopen?'':'nof'}">${S.fopen?`<aside class="card fpanel filters">${filterList(2)}<a class="link" style="display:block;font-size:12px;margin-top:10px">Wis alle filters</a></aside>`:''}
-   <div class="card tcard"><div class="tbar">${bulkBar()}<div class="legend"><span><i class="dot" style="background:var(--red)"></i>Vandaag</span><span><i class="dot" style="background:var(--amber)"></i>Morgen</span></div></div>
+   <div class="card tcard"><div class="tbar">${bulkBar()}<div class="legend"><span><i class="dot" style="background:var(--red)"></i>Deadline vandaag</span></div></div>
    <div class="tblwrap"><table class="t"><thead><tr>${TH}</tr></thead><tbody>${rows.map(r=>`<tr class="clickrow ${S.sel.has(r.id)?'picked':''}" ${open(r.id)}><td>${ck(r)}</td>${rowCells(r)}</tr>`).join('')||'<tr><td colspan="12" class="emptyrow">Geen voorbeeldorders in deze fase</td></tr>'}</tbody></table></div>
    <div class="tfoot">${pager()}</div></div></div>`);
 }
@@ -813,13 +872,13 @@ function r2(detail){
   const fa=(key,label,count,dot)=>`<a class="${fold===key?'on':''}" data-folder="${key}">${dot||''}${label}<span>${count}</span></a>`;
   const ss=SECS();
   const rowH=r=>detail?
-   `<div class="irow ${r.id===320279?'on':''}" ${open(r.id)}><span>${ck(r)}</span><div class="l1"><span class="mono">${r.id}</span><span class="who">${r.c[0]}</span></div><span class="dlr" style="color:${r.dd===0?'var(--red)':r.dd===1?'var(--amber)':'var(--muted)'}">${dlRel(r.dd)} ${r.dt}</span>
-    <div class="l2"><i class="ph-dot ${phase(r.st)}"></i>${ST[r.st]} · ${r.afd}${r.prio?` <span class="tag flag">${r.prio}</span>`:''}</div></div>`:
+   `<div class="irow ${r.id===320279?'on':''}" ${open(r.id)}><span>${ck(r)}</span><div class="l1"><span class="mono">${r.id}</span><span class="who">${r.c[0]}</span></div><span class="dlr" style="color:${r.dd===0?'var(--red)':r.dd===1?'var(--ink)':'var(--muted)'}">${dlRel(r.dd)} ${r.dt}</span>
+    <div class="l2"><i class="ph-dot ${phase(r.st)}"></i>${ST[r.st]} · ${r.afd}${r.prio?` <span class="tag flag${ALARM.test(r.prio)?' alarm':''}">${r.prio}</span>`:''}</div></div>`:
    `<div class="irow" ${open(r.id)}><span>${ck(r)}</span><div><span class="mono" style="font-weight:600">${r.id}</span><br><span class="muted" style="font-size:11.5px">${r.ontv}</span></div>
     <div class="l1" style="flex-direction:column;gap:0"><b>${r.c[0]}</b><span class="muted" style="font-size:12px">${r.c[1]||'Particulier'} · <span class="mono">${r.c[2]}</span></span></div>
-    <div>${dlCell(r)}</div><div class="l2" style="color:var(--ink)">${pill(r.st)}<span class="tag">${r.afd}</span>${r.prio?`<span class="tag flag">${r.prio}</span>`:''}</div>
+    <div>${dlCell(r)}</div><div class="l2" style="color:var(--ink)">${pill(r.st)}<span class="tag">${r.afd}</span>${r.prio?`<span class="tag flag${ALARM.test(r.prio)?' alarm':''}">${r.prio}</span>`:''}</div>
     <div class="hm" style="font-size:12.5px">${verzCell(r)}<span class="muted" style="font-size:12px">${[r.door,r.blanco?'Blanco':'',r.type,r.proef].filter(Boolean).join(' · ')}</span></div>
-    <div class="hm" style="font-size:12px;text-align:right">${r.bet}${r.nab?`<br><span style="color:var(--amber);font-weight:600">${r.nab}</span>`:''}<br><span class="muted">${r.gew[0]} · ${r.gew[1]}</span></div></div>`;
+    <div class="hm" style="font-size:12px;text-align:right">${r.bet}${r.nab?`<br><b>${r.nab}</b>`:''}<br><span class="muted">${r.gew[0]} · ${r.gew[1]}</span></div></div>`;
   return shell2(`<div class="inbox ${detail?'has-d':''}">
    <aside class="folders" aria-label="Mappen">
     <details open><summary>Status</summary>${fa('Alle','Alle opdrachten','50.475')}${PHASES.map(([k,n,c])=>fa(n,n,phCount(c).toLocaleString('nl-NL'),`<i class="ph-dot ${k}"></i>`)).join('')}</details>
@@ -857,11 +916,11 @@ function r4List(){
   const fs=FILTERS.filter(f=>f[1]!=='date').slice(0,10);
   return shell2(`<div class="lh"><div><h1>Opdrachten</h1></div><div class="row">${searchBar()}${topBtns()}</div></div>
    <div class="fstrip">${fs.map(([n,o])=>`<select class="sel" aria-label="${n}">${o.map((x,j)=>`<option>${j===0?n.replace('Op ','').replace(/^./,m=>m.toUpperCase())+': alle':fval(x)}</option>`).join('')}</select>`).join('')}<input class="inp" type="date" aria-label="Datum deadline" style="min-height:34px;border-radius:6px"><input class="inp" type="date" aria-label="Datum ontvangen" style="min-height:34px;border-radius:6px"></div>
-   <div class="card tcard"><div class="row" style="justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line)">${bulkBar()}<div class="legend">${PHASES.map(([k,n])=>`<span><i class="ph-dot ${k}"></i>${n}</span>`).join('')}</div></div>
+   <div class="card tcard"><div class="row" style="justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line)">${bulkBar()}<div class="legend"><span><i class="dot" style="background:var(--red)"></i>Deadline vandaag</span></div></div>
    <div class="tblwrap"><table class="t"><thead><tr><th style="padding:0"></th><th></th><th>Deadline</th><th>ID</th><th>Status</th><th>Afdeling · prioriteit</th><th>Verzending</th><th>Contact</th><th>Type · proef</th><th>Ontvangen</th><th>Gewijzigd</th><th>Betaling</th><th>Acties</th></tr></thead>
-   <tbody>${rows.map(r=>`<tr class="clickrow ${S.sel.has(r.id)?'picked':''}" ${open(r.id)}><td class="sig"><i style="background:var(--${({prep:'amber',hold:'red',ready:'pink',prod:'blue',done:'green',closed:'line'})[phase(r.st)]})"></i></td><td>${ck(r)}</td><td style="white-space:nowrap">${dlCell(r)}</td><td class="id"><a ${open(r.id)}>${r.id}</a></td><td style="white-space:nowrap">${r.st} ${ST[r.st]}</td>
-     <td>${r.afd}${r.prio?`<br><span class="tag flag" style="margin-top:3px;border-radius:4px">${r.prio}</span>`:''}</td><td style="white-space:nowrap">${r.verz}<br><span class="muted">${[r.door,r.blanco?'Blanco':''].filter(Boolean).join(' · ')||'—'}</span></td>
-     <td style="min-width:160px">${contactCell(r)}</td><td>${r.type}<br><span class="muted">${r.proef||'—'}</span></td><td class="num muted" style="white-space:nowrap">${r.ontv}</td><td class="num" style="white-space:nowrap">${r.gew[0]}<br><span class="muted">${r.gew[1]}</span></td><td>${r.bet}${r.nab?`<br><span style="color:var(--amber);font-weight:600">${r.nab}</span>`:''}</td><td>${actCell()}</td></tr>`).join('')}</tbody></table></div>
+   <tbody>${rows.map(r=>`<tr class="clickrow ${S.sel.has(r.id)?'picked':''}" ${open(r.id)}><td class="sig"><i style="background:${r.dd===0?'var(--red)':'transparent'}"></i></td><td>${ck(r)}</td><td style="white-space:nowrap">${dlCell(r)}</td><td class="id"><a ${open(r.id)}>${r.id}</a></td><td style="white-space:nowrap">${r.st} ${ST[r.st]}</td>
+     <td>${r.afd}${r.prio?`<br><span class="tag flag${ALARM.test(r.prio)?' alarm':''}" style="margin-top:3px;border-radius:4px">${r.prio}</span>`:''}</td><td style="white-space:nowrap">${r.verz}<br><span class="muted">${[r.door,r.blanco?'Blanco':''].filter(Boolean).join(' · ')||'—'}</span></td>
+     <td style="min-width:160px">${contactCell(r)}</td><td>${r.type}<br><span class="muted">${r.proef||'—'}</span></td><td class="num muted" style="white-space:nowrap">${r.ontv}</td><td class="num" style="white-space:nowrap">${r.gew[0]}<br><span class="muted">${r.gew[1]}</span></td><td>${r.bet}${r.nab?`<br><b>${r.nab}</b>`:''}</td><td>${actCell()}</td></tr>`).join('')}</tbody></table></div>
    <div style="padding:10px 12px">${pager()}</div></div>`);
 }
 function r4Detail(){
@@ -880,9 +939,9 @@ function r5List(){
    <div class="row" style="justify-content:space-between">${bulkBar()}${countTxt}</div></div>
    <div class="cards">${rows.map(r=>`<div class="fc ${urg(r.dd)}" ${open(r.id)}><span>${ck(r)}</span>
     <div class="urg"><b>${dlRel(r.dd)}</b><small>${r.dt} · ${new Date(2026,9,15+r.dd).getDate()} okt</small></div>
-    <div class="who"><b>${r.c[0]} <span class="mono muted" style="font-weight:400;font-size:12px">#${r.id}</span></b><small>${r.c[1]||'Particulier'} · <span class="mono">${r.c[2]}</span></small><div class="tags"><span class="tag">${r.afd}</span>${r.prio?`<span class="tag flag">${r.prio}</span>`:''}${r.blanco?'<span class="tag blanco">Blanco</span>':''}</div></div>
+    <div class="who"><b>${r.c[0]} <span class="mono muted" style="font-weight:400;font-size:12px">#${r.id}</span></b><small>${r.c[1]||'Particulier'} · <span class="mono">${r.c[2]}</span></small><div class="tags"><span class="tag">${r.afd}</span>${r.prio?`<span class="tag flag${ALARM.test(r.prio)?' alarm':''}">${r.prio}</span>`:''}${r.blanco?'<span class="tag blanco">Blanco</span>':''}</div></div>
     <div>${pill(r.st)}<div class="muted" style="font-size:12px;margin-top:6px">${ic(verzIc(r.verz),14)} ${r.verz}${r.door?' · '+r.door:''}</div></div>
-    <div class="side hm">${r.type} · ${r.bet}${r.nab?`<br><b style="color:var(--amber)">${r.nab}</b>`:''}${r.proef?'<br>'+r.proef:''}<br>In ${r.ontv}<br>Gewijzigd ${r.gew[0]} · ${r.gew[1]}</div></div>`).join('')}
+    <div class="side hm">${r.type} · ${r.bet}${r.nab?`<br><b>${r.nab}</b>`:''}${r.proef?'<br>'+r.proef:''}<br>In ${r.ontv}<br>Gewijzigd ${r.gew[0]} · ${r.gew[1]}</div></div>`).join('')}
     <div style="margin-top:10px">${pager()}</div></div>`);
 }
 function r5Detail(){
